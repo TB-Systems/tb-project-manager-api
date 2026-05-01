@@ -1,13 +1,12 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 
 	"github.com/TB-Systems/tb-project-manager-api/app"
+	"github.com/TB-Systems/tb-project-manager-api/database"
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 )
 
@@ -16,18 +15,26 @@ func main() {
 		panic(err)
 	}
 
-	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, os.Getenv("DB_CONNECTION_STRING"))
+	db, err := database.Connect(os.Getenv("DB_CONNECTION_STRING"))
 	if err != nil {
 		panic(err)
 	}
 
-	defer pool.Close()
-	if err := pool.Ping(ctx); err != nil {
+	sqlDB, err := db.DB()
+	if err != nil {
+		panic(err)
+	}
+	defer sqlDB.Close()
+
+	if err := sqlDB.Ping(); err != nil {
 		panic(err)
 	}
 
-	app := app.NewApp(gin.Default(), pool)
+	if err := database.Migrate(db); err != nil {
+		panic(err)
+	}
+
+	app := app.NewApp(gin.Default(), db)
 	app.RegisterRoutes()
 
 	port := os.Getenv("PORT")

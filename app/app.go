@@ -2,8 +2,10 @@ package app
 
 import (
 	"github.com/TB-Systems/tb-project-manager-api/handlers"
+	"github.com/TB-Systems/tb-project-manager-api/repositories"
+	"github.com/TB-Systems/tb-project-manager-api/services"
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"gorm.io/gorm"
 )
 
 type App struct {
@@ -12,10 +14,16 @@ type App struct {
 	AuthHandler     *handlers.Auth
 }
 
-func NewApp(router *gin.Engine, pool *pgxpool.Pool) *App {
+func NewApp(router *gin.Engine, db *gorm.DB) *App {
 	return &App{
 		Router:          router,
 		ProjectsHandler: handlers.NewProjectHandler(),
-		AuthHandler:     handlers.NewAuthHandler(),
+		AuthHandler:     createAuth(db),
 	}
+}
+
+func createAuth(db *gorm.DB) *handlers.Auth {
+	repository := repositories.NewAuthRepository(db)
+	service := services.NewAuthService(repository)
+	return handlers.NewAuthHandler(service)
 }

@@ -3,25 +3,34 @@ package handlers
 import (
 	"net/http"
 
+	"github.com/TB-Systems/go-commons/utils"
 	"github.com/TB-Systems/tb-project-manager-api/dto"
+	"github.com/TB-Systems/tb-project-manager-api/services"
 	"github.com/gin-gonic/gin"
 )
 
 type Auth struct {
+	service services.Auth
 }
 
-func NewAuthHandler() *Auth {
-	return &Auth{}
+func NewAuthHandler(service services.Auth) *Auth {
+	return &Auth{service: service}
 }
 
 func (h *Auth) Login() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var request dto.LoginRequest
-		if err := c.ShouldBindJSON(&request); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		request, apiErr := utils.DecodeValidJson[dto.LoginRequest](c)
+		if apiErr != nil {
+			utils.SendErrorResponse(c, apiErr)
 			return
 		}
 
-		c.JSON(http.StatusOK, "success")
+		data, apiErr := h.service.Login(c.Request.Context(), request)
+		if apiErr != nil {
+			utils.SendErrorResponse(c, apiErr)
+			return
+		}
+
+		utils.SendResponse(c, data, http.StatusOK)
 	}
 }
