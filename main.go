@@ -3,9 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"os"
 
+	"github.com/TB-Systems/tb-project-manager-api/app"
+	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 )
@@ -17,20 +18,17 @@ func main() {
 
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, os.Getenv("DB_CONNECTION_STRING"))
-
 	if err != nil {
 		panic(err)
 	}
 
 	defer pool.Close()
-
 	if err := pool.Ping(ctx); err != nil {
 		panic(err)
 	}
 
-	// api := api.NewApi(gin.Default(), pool)
-
-	// api.RegisterRoutes()
+	app := app.NewApp(gin.Default(), pool)
+	app.RegisterRoutes()
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -38,14 +36,7 @@ func main() {
 	}
 
 	fmt.Printf("Starting Server on port :%s\n", port)
-
-	// Keep the process running under Air until API routes are wired.
-	http.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
-	})
-
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
+	if err := app.Router.Run(":" + port); err != nil {
 		panic(err)
 	}
 }
