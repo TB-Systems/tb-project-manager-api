@@ -9,11 +9,13 @@ import (
 type App struct {
 	Router          *gin.Engine
 	ProjectsHandler *handlers.Project
+	AuthHandler     *handlers.Auth
 }
 
 func NewApp(router *gin.Engine, pool *pgxpool.Pool) *App {
 	return &App{
 		Router:          router,
-		ProjectsHandler: handlers.NewProjectsHandler(),
+		ProjectsHandler: handlers.NewProjectHandler(),
+		AuthHandler:     handlers.NewAuthHandler(),
 	}
 }

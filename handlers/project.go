@@ -9,7 +9,7 @@ import (
 type Project struct {
 }
 
-func NewProjectsHandler() *Project {
+func NewProjectHandler() *Project {
 	return &Project{}
 }
 
