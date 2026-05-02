@@ -12,18 +12,17 @@ type App struct {
 	Router          *gin.Engine
 	ProjectsHandler *handlers.Project
 	AuthHandler     *handlers.Auth
+	AuthService     services.Auth
 }
 
 func NewApp(router *gin.Engine, db *gorm.DB) *App {
+	authRepository := repositories.NewAuthRepository(db)
+	authService := services.NewAuthService(authRepository)
+
 	return &App{
 		Router:          router,
 		ProjectsHandler: handlers.NewProjectHandler(),
-		AuthHandler:     createAuth(db),
+		AuthHandler:     handlers.NewAuthHandler(authService),
+		AuthService:     authService,
 	}
-}
-
-func createAuth(db *gorm.DB) *handlers.Auth {
-	repository := repositories.NewAuthRepository(db)
-	service := services.NewAuthService(repository)
-	return handlers.NewAuthHandler(service)
 }

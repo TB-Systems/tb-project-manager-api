@@ -1,9 +1,12 @@
 package app
 
+import "github.com/TB-Systems/tb-project-manager-api/middlewares"
+
 func (a *App) RegisterRoutes() {
 	api := a.Router.Group("/api/v1")
 
 	projects := api.Group("/projects")
+	projects.Use(middlewares.AuthRequired(a.AuthService))
 	{
 		projects.GET("", a.ProjectsHandler.List())
 		projects.POST("", a.ProjectsHandler.Create())

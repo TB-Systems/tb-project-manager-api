@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/TB-Systems/go-commons/utils"
+	"github.com/TB-Systems/tb-project-manager-api/constants"
 	"github.com/TB-Systems/tb-project-manager-api/dto"
 	"github.com/TB-Systems/tb-project-manager-api/services"
 	"github.com/gin-gonic/gin"
@@ -36,7 +37,7 @@ func (h *Auth) Login() gin.HandlerFunc {
 			return
 		}
 
-		utils.SetSessionToken(c, "project_manager_session", data.SessionToken, data.ExpiresAt)
+		utils.SetSessionToken(c, constants.SessionCookieName, data.SessionToken, data.ExpiresAt)
 
 		utils.SendResponse(c, data, http.StatusOK)
 	}

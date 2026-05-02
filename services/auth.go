@@ -18,6 +18,7 @@ import (
 
 type Auth interface {
 	Login(ctx context.Context, request dto.LoginRequest, sessionInfo dto.LoginSessionInfo) (dto.LoginResponse, errors.ApiError)
+	ValidateSession(ctx context.Context, token string) (models.User, errors.ApiError)
 }
 
 type auth struct {
@@ -88,7 +89,31 @@ func newSessionToken() (string, string, error) {
 	}
 
 	token := base64.RawURLEncoding.EncodeToString(rawToken)
-	hash := sha256.Sum256([]byte(token))
 
-	return token, hex.EncodeToString(hash[:]), nil
+	return token, hashSessionToken(token), nil
+}
+
+func (a auth) ValidateSession(ctx context.Context, token string) (models.User, errors.ApiError) {
+	now := time.Now().UTC()
+	session, err := a.repository.FindValidSessionByTokenHash(ctx, hashSessionToken(token), now)
+	if err != nil {
+		return models.User{}, errors.NewApiError(
+			http.StatusUnauthorized,
+			errors.BadRequestError("INVALID_SESSION"),
+		)
+	}
+
+	if err := a.repository.TouchSession(ctx, session.ID, now); err != nil {
+		return models.User{}, errors.NewApiError(
+			http.StatusInternalServerError,
+			errors.InternalServerError("UPDATE_SESSION_FAILED"),
+		)
+	}
+
+	return session.User, nil
+}
+
+func hashSessionToken(token string) string {
+	hash := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(hash[:])
 }

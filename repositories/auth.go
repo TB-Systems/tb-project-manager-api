@@ -12,6 +12,8 @@ import (
 
 type Auth interface {
 	Authenticate(ctx context.Context, login models.Login) (models.User, error)
+	FindValidSessionByTokenHash(ctx context.Context, tokenHash string, now time.Time) (models.UserSession, error)
+	TouchSession(ctx context.Context, sessionID uint, lastSeenAt time.Time) error
 	UpsertSession(ctx context.Context, session models.UserSession) error
 }
 
@@ -34,6 +36,31 @@ func (a auth) Authenticate(ctx context.Context, login models.Login) (models.User
 	}
 
 	return user, nil
+}
+
+func (a auth) FindValidSessionByTokenHash(ctx context.Context, tokenHash string, now time.Time) (models.UserSession, error) {
+	var session models.UserSession
+	err := a.db.WithContext(ctx).
+		Preload("User").
+		Where("token_hash = ? AND revoked_at IS NULL AND expires_at > ?", tokenHash, now).
+		First(&session).
+		Error
+	if err != nil {
+		return models.UserSession{}, err
+	}
+
+	return session, nil
+}
+
+func (a auth) TouchSession(ctx context.Context, sessionID uint, lastSeenAt time.Time) error {
+	return a.db.WithContext(ctx).
+		Model(&models.UserSession{}).
+		Where("id = ?", sessionID).
+		Updates(map[string]interface{}{
+			"last_seen_at": lastSeenAt,
+			"updated_at":   lastSeenAt,
+		}).
+		Error
 }
 
 func (a auth) UpsertSession(ctx context.Context, session models.UserSession) error {
