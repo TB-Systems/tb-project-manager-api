@@ -8,6 +8,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/TB-Systems/go-commons/errors"
@@ -23,28 +25,48 @@ type Auth interface {
 }
 
 type auth struct {
-	repository repositories.Auth
+	repository          repositories.Auth
+	loginAttemptLimiter *loginAttemptLimiter
 }
 
 func NewAuthService(repository repositories.Auth) Auth {
-	return auth{repository: repository}
+	return &auth{
+		repository:          repository,
+		loginAttemptLimiter: newLoginAttemptLimiter(),
+	}
 }
 
-const sessionTTL = 24 * time.Hour
+const (
+	sessionTTL             = 24 * time.Hour
+	maxFailedLoginAttempts = 5
+	loginAttemptWindow     = 5 * time.Minute
+	loginAttemptBlockTTL   = 5 * time.Minute
+)
 
-func (a auth) Login(ctx context.Context, request dto.LoginRequest, sessionInfo dto.LoginSessionInfo) (dto.LoginResponse, errors.ApiError) {
+func (a *auth) Login(ctx context.Context, request dto.LoginRequest, sessionInfo dto.LoginSessionInfo) (dto.LoginResponse, errors.ApiError) {
 	login := models.Login{
 		Username: request.Username,
 		Password: request.Password,
 	}
 
+	attemptKey := loginAttemptKey(sessionInfo.IPAddress, request.Username)
+	if a.loginAttemptLimiter.IsBlocked(attemptKey, time.Now().UTC()) {
+		return dto.LoginResponse{}, errors.NewApiError(
+			http.StatusTooManyRequests,
+			errors.BadRequestError("TOO_MANY_LOGIN_ATTEMPTS"),
+		)
+	}
+
 	user, err := a.repository.Authenticate(ctx, login)
 	if err != nil {
+		a.loginAttemptLimiter.RecordFailure(attemptKey, time.Now().UTC())
 		return dto.LoginResponse{}, errors.NewApiError(
 			http.StatusUnauthorized,
 			errors.BadRequestError("INVALID_CREDENTIALS"),
 		)
 	}
+
+	a.loginAttemptLimiter.Reset(attemptKey)
 
 	token, tokenHash, err := newSessionToken()
 	if err != nil {
@@ -94,7 +116,7 @@ func newSessionToken() (string, string, error) {
 	return token, hashSessionToken(token), nil
 }
 
-func (a auth) ValidateSession(ctx context.Context, token string) (models.User, errors.ApiError) {
+func (a *auth) ValidateSession(ctx context.Context, token string) (models.User, errors.ApiError) {
 	now := time.Now().UTC()
 	session, err := a.repository.FindValidSessionByTokenHash(ctx, hashSessionToken(token), now)
 	if err != nil {
@@ -114,7 +136,7 @@ func (a auth) ValidateSession(ctx context.Context, token string) (models.User, e
 	return session.User, nil
 }
 
-func (a auth) Logout(ctx context.Context, token string) errors.ApiError {
+func (a *auth) Logout(ctx context.Context, token string) errors.ApiError {
 	if token == "" {
 		return errors.NewApiError(
 			http.StatusUnauthorized,
@@ -135,4 +157,67 @@ func (a auth) Logout(ctx context.Context, token string) errors.ApiError {
 func hashSessionToken(token string) string {
 	hash := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(hash[:])
+}
+
+type loginAttemptLimiter struct {
+	mu       sync.Mutex
+	attempts map[string]loginAttempt
+}
+
+type loginAttempt struct {
+	Count         int
+	FirstFailedAt time.Time
+	BlockedUntil  time.Time
+}
+
+func newLoginAttemptLimiter() *loginAttemptLimiter {
+	return &loginAttemptLimiter{attempts: make(map[string]loginAttempt)}
+}
+
+func (l *loginAttemptLimiter) IsBlocked(key string, now time.Time) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	attempt, exists := l.attempts[key]
+	if !exists {
+		return false
+	}
+
+	if attempt.BlockedUntil.After(now) {
+		return true
+	}
+
+	if now.Sub(attempt.FirstFailedAt) > loginAttemptWindow {
+		delete(l.attempts, key)
+	}
+
+	return false
+}
+
+func (l *loginAttemptLimiter) RecordFailure(key string, now time.Time) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	attempt := l.attempts[key]
+	if attempt.FirstFailedAt.IsZero() || now.Sub(attempt.FirstFailedAt) > loginAttemptWindow {
+		attempt = loginAttempt{FirstFailedAt: now}
+	}
+
+	attempt.Count++
+	if attempt.Count >= maxFailedLoginAttempts {
+		attempt.BlockedUntil = now.Add(loginAttemptBlockTTL)
+	}
+
+	l.attempts[key] = attempt
+}
+
+func (l *loginAttemptLimiter) Reset(key string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	delete(l.attempts, key)
+}
+
+func loginAttemptKey(ipAddress string, username string) string {
+	return strings.TrimSpace(ipAddress) + "|" + strings.ToLower(strings.TrimSpace(username))
 }
