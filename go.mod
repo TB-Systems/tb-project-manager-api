@@ -3,7 +3,7 @@ module github.com/TB-Systems/tb-project-manager-api
 go 1.25.5
 
 require (
-	github.com/TB-Systems/go-commons v1.1.0
+	github.com/TB-Systems/go-commons v1.2.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/joho/godotenv v1.5.1
 	golang.org/x/crypto v0.48.0

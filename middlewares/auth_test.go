@@ -102,6 +102,10 @@ func (f *fakeAuthService) Login(context.Context, dto.LoginRequest, dto.LoginSess
 	return dto.LoginResponse{}, nil
 }
 
+func (f *fakeAuthService) Logout(context.Context, string) errors.ApiError {
+	return nil
+}
+
 func (f *fakeAuthService) ValidateSession(_ context.Context, token string) (models.User, errors.ApiError) {
 	f.validateCalled = true
 	f.receivedToken = token

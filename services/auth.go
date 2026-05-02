@@ -18,6 +18,7 @@ import (
 
 type Auth interface {
 	Login(ctx context.Context, request dto.LoginRequest, sessionInfo dto.LoginSessionInfo) (dto.LoginResponse, errors.ApiError)
+	Logout(ctx context.Context, token string) errors.ApiError
 	ValidateSession(ctx context.Context, token string) (models.User, errors.ApiError)
 }
 
@@ -111,6 +112,24 @@ func (a auth) ValidateSession(ctx context.Context, token string) (models.User, e
 	}
 
 	return session.User, nil
+}
+
+func (a auth) Logout(ctx context.Context, token string) errors.ApiError {
+	if token == "" {
+		return errors.NewApiError(
+			http.StatusUnauthorized,
+			errors.BadRequestError("INVALID_SESSION"),
+		)
+	}
+
+	if err := a.repository.RevokeSessionByTokenHash(ctx, hashSessionToken(token), time.Now().UTC()); err != nil {
+		return errors.NewApiError(
+			http.StatusInternalServerError,
+			errors.InternalServerError("LOGOUT_FAILED"),
+		)
+	}
+
+	return nil
 }
 
 func hashSessionToken(token string) string {

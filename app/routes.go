@@ -15,5 +15,6 @@ func (a *App) RegisterRoutes() {
 	auth := api.Group("/auth")
 	{
 		auth.POST("/login", a.AuthHandler.Login())
+		auth.POST("/logout", middlewares.AuthRequired(a.AuthService), a.AuthHandler.Logout())
 	}
 }

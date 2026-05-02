@@ -42,3 +42,17 @@ func (h *Auth) Login() gin.HandlerFunc {
 		utils.SendResponse(c, data, http.StatusOK)
 	}
 }
+
+func (h *Auth) Logout() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token, _ := c.Cookie(constants.SessionCookieName)
+
+		if apiErr := h.service.Logout(c.Request.Context(), token); apiErr != nil {
+			utils.SendErrorResponse(c, apiErr)
+			return
+		}
+
+		utils.ClearSessionToken(c, constants.SessionCookieName)
+		utils.SendResponse(c, gin.H{"logged_out": true}, http.StatusOK)
+	}
+}

@@ -13,6 +13,7 @@ import (
 type Auth interface {
 	Authenticate(ctx context.Context, login models.Login) (models.User, error)
 	FindValidSessionByTokenHash(ctx context.Context, tokenHash string, now time.Time) (models.UserSession, error)
+	RevokeSessionByTokenHash(ctx context.Context, tokenHash string, revokedAt time.Time) error
 	TouchSession(ctx context.Context, sessionID uint, lastSeenAt time.Time) error
 	UpsertSession(ctx context.Context, session models.UserSession) error
 }
@@ -50,6 +51,17 @@ func (a auth) FindValidSessionByTokenHash(ctx context.Context, tokenHash string,
 	}
 
 	return session, nil
+}
+
+func (a auth) RevokeSessionByTokenHash(ctx context.Context, tokenHash string, revokedAt time.Time) error {
+	return a.db.WithContext(ctx).
+		Model(&models.UserSession{}).
+		Where("token_hash = ? AND revoked_at IS NULL", tokenHash).
+		Updates(map[string]interface{}{
+			"revoked_at": revokedAt,
+			"updated_at": revokedAt,
+		}).
+		Error
 }
 
 func (a auth) TouchSession(ctx context.Context, sessionID uint, lastSeenAt time.Time) error {
