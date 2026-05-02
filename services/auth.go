@@ -2,7 +2,13 @@ package services
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/TB-Systems/go-commons/errors"
 	"github.com/TB-Systems/tb-project-manager-api/dto"
@@ -11,7 +17,7 @@ import (
 )
 
 type Auth interface {
-	Login(ctx context.Context, request dto.LoginRequest) (dto.LoginResponse, errors.ApiError)
+	Login(ctx context.Context, request dto.LoginRequest, sessionInfo dto.LoginSessionInfo) (dto.LoginResponse, errors.ApiError)
 }
 
 type auth struct {
@@ -22,7 +28,9 @@ func NewAuthService(repository repositories.Auth) Auth {
 	return auth{repository: repository}
 }
 
-func (a auth) Login(ctx context.Context, request dto.LoginRequest) (dto.LoginResponse, errors.ApiError) {
+const sessionTTL = 24 * time.Hour
+
+func (a auth) Login(ctx context.Context, request dto.LoginRequest, sessionInfo dto.LoginSessionInfo) (dto.LoginResponse, errors.ApiError) {
 	login := models.Login{
 		Username: request.Username,
 		Password: request.Password,
@@ -36,11 +44,51 @@ func (a auth) Login(ctx context.Context, request dto.LoginRequest) (dto.LoginRes
 		)
 	}
 
+	token, tokenHash, err := newSessionToken()
+	if err != nil {
+		return dto.LoginResponse{}, errors.NewApiError(
+			http.StatusInternalServerError,
+			errors.InternalServerError("CREATE_SESSION_TOKEN_FAILED"),
+		)
+	}
+
+	now := time.Now().UTC()
+	expiresAt := now.Add(sessionTTL)
+	session := models.UserSession{
+		UserID:     user.ID,
+		TokenHash:  tokenHash,
+		UserAgent:  sessionInfo.UserAgent,
+		IPAddress:  sessionInfo.IPAddress,
+		ExpiresAt:  expiresAt,
+		LastSeenAt: now,
+	}
+
+	if err := a.repository.UpsertSession(ctx, session); err != nil {
+		return dto.LoginResponse{}, errors.NewApiError(
+			http.StatusInternalServerError,
+			errors.InternalServerError("CREATE_SESSION_FAILED"),
+		)
+	}
+
 	return dto.LoginResponse{
-		ID:       user.ID,
-		Name:     user.Name,
-		Username: user.Username,
-		Email:    user.Email,
-		CPF:      user.CPF,
+		ID:           user.ID,
+		Name:         user.Name,
+		Username:     user.Username,
+		Email:        user.Email,
+		CPF:          user.CPF,
+		SessionToken: token,
+		ExpiresAt:    expiresAt,
 	}, nil
+}
+
+func newSessionToken() (string, string, error) {
+	rawToken := make([]byte, 32)
+	if _, err := rand.Read(rawToken); err != nil {
+		return "", "", fmt.Errorf("read random token: %w", err)
+	}
+
+	token := base64.RawURLEncoding.EncodeToString(rawToken)
+	hash := sha256.Sum256([]byte(token))
+
+	return token, hex.EncodeToString(hash[:]), nil
 }

@@ -25,11 +25,18 @@ func (h *Auth) Login() gin.HandlerFunc {
 			return
 		}
 
-		data, apiErr := h.service.Login(c.Request.Context(), request)
+		sessionInfo := dto.LoginSessionInfo{
+			UserAgent: c.GetHeader("User-Agent"),
+			IPAddress: c.ClientIP(),
+		}
+
+		data, apiErr := h.service.Login(c.Request.Context(), request, sessionInfo)
 		if apiErr != nil {
 			utils.SendErrorResponse(c, apiErr)
 			return
 		}
+
+		utils.SetSessionToken(c, "project_manager_session", data.SessionToken, data.ExpiresAt)
 
 		utils.SendResponse(c, data, http.StatusOK)
 	}
