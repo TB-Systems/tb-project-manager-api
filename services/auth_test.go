@@ -70,9 +70,188 @@ func TestLoginRateLimit(t *testing.T) {
 	})
 }
 
+func TestLoginErrors(t *testing.T) {
+	t.Run("returns internal error when session cannot be saved", func(t *testing.T) {
+		repository := &fakeAuthRepository{upsertErr: stderrors.New("database error")}
+		service := NewAuthService(repository)
+
+		_, apiErr := service.Login(
+			context.Background(),
+			dto.LoginRequest{Username: "tiago", Password: "right-password"},
+			dto.LoginSessionInfo{IPAddress: "127.0.0.1"},
+		)
+
+		if apiErr == nil {
+			t.Fatal("Expected create session error")
+		}
+		if apiErr.GetStatus() != http.StatusInternalServerError {
+			t.Fatalf("Expected status %d, got %d", http.StatusInternalServerError, apiErr.GetStatus())
+		}
+	})
+}
+
+func TestValidateSession(t *testing.T) {
+	t.Run("returns user and touches session", func(t *testing.T) {
+		repository := &fakeAuthRepository{
+			session: models.UserSession{
+				ID:   10,
+				User: models.User{ID: 1, Username: "tiago"},
+			},
+		}
+		service := NewAuthService(repository)
+
+		user, apiErr := service.ValidateSession(context.Background(), "session-token")
+
+		if apiErr != nil {
+			t.Fatalf("Expected valid session, got status %d", apiErr.GetStatus())
+		}
+		if user.ID != 1 {
+			t.Fatalf("Expected user ID 1, got %d", user.ID)
+		}
+		if !repository.findSessionCalled {
+			t.Fatal("Expected session lookup to be called")
+		}
+		if repository.touchedSessionID != 10 {
+			t.Fatalf("Expected touched session ID 10, got %d", repository.touchedSessionID)
+		}
+	})
+
+	t.Run("returns unauthorized when session is invalid", func(t *testing.T) {
+		repository := &fakeAuthRepository{findSessionErr: stderrors.New("not found")}
+		service := NewAuthService(repository)
+
+		_, apiErr := service.ValidateSession(context.Background(), "bad-token")
+
+		if apiErr == nil {
+			t.Fatal("Expected invalid session error")
+		}
+		if apiErr.GetStatus() != http.StatusUnauthorized {
+			t.Fatalf("Expected status %d, got %d", http.StatusUnauthorized, apiErr.GetStatus())
+		}
+		if repository.touchedSessionID != 0 {
+			t.Fatalf("Expected session not to be touched, got %d", repository.touchedSessionID)
+		}
+	})
+
+	t.Run("returns internal error when touch fails", func(t *testing.T) {
+		repository := &fakeAuthRepository{
+			session: models.UserSession{
+				ID:   10,
+				User: models.User{ID: 1, Username: "tiago"},
+			},
+			touchErr: stderrors.New("database error"),
+		}
+		service := NewAuthService(repository)
+
+		_, apiErr := service.ValidateSession(context.Background(), "session-token")
+
+		if apiErr == nil {
+			t.Fatal("Expected touch session error")
+		}
+		if apiErr.GetStatus() != http.StatusInternalServerError {
+			t.Fatalf("Expected status %d, got %d", http.StatusInternalServerError, apiErr.GetStatus())
+		}
+	})
+}
+
+func TestLogout(t *testing.T) {
+	t.Run("rejects empty token", func(t *testing.T) {
+		repository := &fakeAuthRepository{}
+		service := NewAuthService(repository)
+
+		apiErr := service.Logout(context.Background(), "")
+
+		if apiErr == nil {
+			t.Fatal("Expected invalid session error")
+		}
+		if apiErr.GetStatus() != http.StatusUnauthorized {
+			t.Fatalf("Expected status %d, got %d", http.StatusUnauthorized, apiErr.GetStatus())
+		}
+		if repository.revokeCalled {
+			t.Fatal("Expected revoke not to be called for empty token")
+		}
+	})
+
+	t.Run("revokes session", func(t *testing.T) {
+		repository := &fakeAuthRepository{}
+		service := NewAuthService(repository)
+
+		apiErr := service.Logout(context.Background(), "session-token")
+
+		if apiErr != nil {
+			t.Fatalf("Expected successful logout, got status %d", apiErr.GetStatus())
+		}
+		if !repository.revokeCalled {
+			t.Fatal("Expected session revoke to be called")
+		}
+		if repository.revokedTokenHash == "" {
+			t.Fatal("Expected token hash to be passed to repository")
+		}
+	})
+
+	t.Run("returns internal error when revoke fails", func(t *testing.T) {
+		repository := &fakeAuthRepository{revokeErr: stderrors.New("database error")}
+		service := NewAuthService(repository)
+
+		apiErr := service.Logout(context.Background(), "session-token")
+
+		if apiErr == nil {
+			t.Fatal("Expected logout error")
+		}
+		if apiErr.GetStatus() != http.StatusInternalServerError {
+			t.Fatalf("Expected status %d, got %d", http.StatusInternalServerError, apiErr.GetStatus())
+		}
+	})
+}
+
+func TestLoginAttemptKey(t *testing.T) {
+	got := loginAttemptKey(" 127.0.0.1 ", " TiAgO ")
+	want := "127.0.0.1|tiago"
+	if got != want {
+		t.Fatalf("Expected key %q, got %q", want, got)
+	}
+}
+
+func TestLoginAttemptLimiterResetsExpiredWindow(t *testing.T) {
+	limiter := newLoginAttemptLimiter()
+	now := time.Now().UTC()
+	key := "127.0.0.1|tiago"
+
+	limiter.RecordFailure(key, now.Add(-loginAttemptWindow-time.Second))
+
+	if limiter.IsBlocked(key, now) {
+		t.Fatal("Expected expired window not to be blocked")
+	}
+	if _, exists := limiter.attempts[key]; exists {
+		t.Fatal("Expected expired login attempt window to be removed")
+	}
+}
+
+func TestLoginAttemptLimiterStartsNewWindowAfterExpiration(t *testing.T) {
+	limiter := newLoginAttemptLimiter()
+	firstAttempt := time.Now().UTC()
+	key := "127.0.0.1|tiago"
+
+	limiter.RecordFailure(key, firstAttempt)
+	limiter.RecordFailure(key, firstAttempt.Add(loginAttemptWindow+time.Second))
+
+	attempt := limiter.attempts[key]
+	if attempt.Count != 1 {
+		t.Fatalf("Expected new window count to be 1, got %d", attempt.Count)
+	}
+}
+
 type fakeAuthRepository struct {
 	authenticateCalls int
 	authenticateErr   error
+	findSessionCalled bool
+	findSessionErr    error
+	revokeCalled      bool
+	revokeErr         error
+	revokedTokenHash  string
+	session           models.UserSession
+	touchErr          error
+	touchedSessionID  uint
 	upsertErr         error
 	user              models.User
 }
@@ -95,15 +274,22 @@ func (f *fakeAuthRepository) Authenticate(context.Context, models.Login) (models
 }
 
 func (f *fakeAuthRepository) FindValidSessionByTokenHash(context.Context, string, time.Time) (models.UserSession, error) {
-	return models.UserSession{}, nil
+	f.findSessionCalled = true
+	if f.findSessionErr != nil {
+		return models.UserSession{}, f.findSessionErr
+	}
+	return f.session, nil
 }
 
-func (f *fakeAuthRepository) RevokeSessionByTokenHash(context.Context, string, time.Time) error {
-	return nil
+func (f *fakeAuthRepository) RevokeSessionByTokenHash(_ context.Context, tokenHash string, _ time.Time) error {
+	f.revokeCalled = true
+	f.revokedTokenHash = tokenHash
+	return f.revokeErr
 }
 
-func (f *fakeAuthRepository) TouchSession(context.Context, uint, time.Time) error {
-	return nil
+func (f *fakeAuthRepository) TouchSession(_ context.Context, sessionID uint, _ time.Time) error {
+	f.touchedSessionID = sessionID
+	return f.touchErr
 }
 
 func (f *fakeAuthRepository) UpsertSession(context.Context, models.UserSession) error {
