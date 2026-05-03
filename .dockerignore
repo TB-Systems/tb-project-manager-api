@@ -1,0 +1,9 @@
+.air.toml
+.dockerignore
+.env
+.env.*
+.git
+.gocache
+coverage.*
+*.out
+tmp

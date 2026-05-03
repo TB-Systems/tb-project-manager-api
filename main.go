@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/TB-Systems/tb-project-manager-api/app"
 	"github.com/TB-Systems/tb-project-manager-api/config"
@@ -12,7 +13,7 @@ import (
 
 func main() {
 	err := godotenv.Load()
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		panic(err)
 	}
 
