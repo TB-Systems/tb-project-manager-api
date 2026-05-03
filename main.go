@@ -2,20 +2,23 @@ package main
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/TB-Systems/tb-project-manager-api/app"
+	"github.com/TB-Systems/tb-project-manager-api/config"
 	"github.com/TB-Systems/tb-project-manager-api/database"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
 
 func main() {
-	if err := godotenv.Load(); err != nil {
+	err := godotenv.Load()
+	if err != nil {
 		panic(err)
 	}
 
-	db, err := database.Connect(os.Getenv("DB_CONNECTION_STRING"))
+	cfg := config.Load()
+
+	db, err := database.Connect(cfg.DBConnectionString)
 	if err != nil {
 		panic(err)
 	}
@@ -34,10 +37,15 @@ func main() {
 		panic(err)
 	}
 
-	app := app.NewApp(gin.Default(), db)
+	router := gin.Default()
+	if err := router.SetTrustedProxies(cfg.TrustedProxies); err != nil {
+		panic(err)
+	}
+
+	app := app.NewApp(router, db, cfg)
 	app.RegisterRoutes()
 
-	port := os.Getenv("PORT")
+	port := cfg.Port
 	if port == "" {
 		panic("PORT_ENV_NOT_SET")
 	}

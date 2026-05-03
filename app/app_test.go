@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/TB-Systems/tb-project-manager-api/config"
 	"github.com/gin-gonic/gin"
 )
 
@@ -12,10 +13,14 @@ func TestNewApp(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	router := gin.New()
-	app := NewApp(router, nil)
+	cfg := config.Config{AppEnv: config.EnvironmentDevelopment}
+	app := NewApp(router, nil, cfg)
 
 	if app.Router != router {
 		t.Fatal("Expected app to keep provided router")
+	}
+	if app.Config.AppEnv != cfg.AppEnv {
+		t.Fatal("Expected app to keep provided config")
 	}
 	if app.ProjectsHandler == nil {
 		t.Fatal("Expected projects handler to be initialized")
@@ -32,7 +37,7 @@ func TestRegisterRoutes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	router := gin.New()
-	app := NewApp(router, nil)
+	app := NewApp(router, nil, config.Config{AppEnv: config.EnvironmentDevelopment})
 	app.RegisterRoutes()
 
 	routes := router.Routes()

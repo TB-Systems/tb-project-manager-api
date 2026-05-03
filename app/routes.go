@@ -3,6 +3,8 @@ package app
 import "github.com/TB-Systems/tb-project-manager-api/middlewares"
 
 func (a *App) RegisterRoutes() {
+	a.Router.Use(middlewares.SecurityHeaders(a.Config), middlewares.RequireHTTPS(a.Config))
+
 	api := a.Router.Group("/api/v1")
 
 	projects := api.Group("/projects")
