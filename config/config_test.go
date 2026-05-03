@@ -7,6 +7,7 @@ import (
 
 func TestLoad(t *testing.T) {
 	t.Setenv("APP_ENV", "production")
+	t.Setenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173, https://front.internal, ")
 	t.Setenv("DB_CONNECTION_STRING", "postgres-dsn")
 	t.Setenv("PORT", "3000")
 	t.Setenv("TRUSTED_PROXIES", "127.0.0.1, 10.0.0.0/8, ")
@@ -18,6 +19,10 @@ func TestLoad(t *testing.T) {
 	}
 	if cfg.DBConnectionString != "postgres-dsn" {
 		t.Fatalf("Expected DB connection string to be loaded")
+	}
+	wantOrigins := []string{"http://localhost:5173", "https://front.internal"}
+	if !reflect.DeepEqual(cfg.CORSAllowedOrigins, wantOrigins) {
+		t.Fatalf("Expected CORS allowed origins %v, got %v", wantOrigins, cfg.CORSAllowedOrigins)
 	}
 	if cfg.Port != "3000" {
 		t.Fatalf("Expected port 3000, got %q", cfg.Port)
@@ -39,6 +44,11 @@ func TestLoadDefaults(t *testing.T) {
 	wantProxies := []string{"127.0.0.1", "::1"}
 	if !reflect.DeepEqual(cfg.TrustedProxies, wantProxies) {
 		t.Fatalf("Expected default trusted proxies %v, got %v", wantProxies, cfg.TrustedProxies)
+	}
+
+	wantOrigins := []string{"http://localhost:5173", "http://localhost:3000"}
+	if !reflect.DeepEqual(cfg.CORSAllowedOrigins, wantOrigins) {
+		t.Fatalf("Expected default CORS origins %v, got %v", wantOrigins, cfg.CORSAllowedOrigins)
 	}
 }
 
