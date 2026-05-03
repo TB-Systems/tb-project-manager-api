@@ -29,6 +29,7 @@ func TestLogin(t *testing.T) {
 				Email:        "tiago@example.com",
 				CPF:          "00000000000",
 				SessionToken: "session-token",
+				CSRFToken:    "csrf-token",
 				ExpiresAt:    expiresAt,
 			},
 		}
@@ -57,6 +58,13 @@ func TestLogin(t *testing.T) {
 		if cookie.Value != "session-token" {
 			t.Fatalf("Expected session cookie value %q, got %q", "session-token", cookie.Value)
 		}
+		csrfCookie := findSetCookie(t, w, constants.CSRFCookieName)
+		if csrfCookie.Value != "csrf-token" {
+			t.Fatalf("Expected CSRF cookie value %q, got %q", "csrf-token", csrfCookie.Value)
+		}
+		if csrfCookie.HttpOnly {
+			t.Fatal("Expected CSRF cookie to be readable by frontend JavaScript")
+		}
 
 		var response map[string]interface{}
 		if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
@@ -64,6 +72,9 @@ func TestLogin(t *testing.T) {
 		}
 		if _, exists := response["session_token"]; exists {
 			t.Fatal("Expected session_token to be omitted from JSON response")
+		}
+		if _, exists := response["csrf_token"]; exists {
+			t.Fatal("Expected csrf_token to be omitted from JSON response")
 		}
 	})
 
@@ -136,6 +147,16 @@ func TestLogout(t *testing.T) {
 		if !cookie.HttpOnly {
 			t.Error("Expected cleared cookie to be HttpOnly")
 		}
+		csrfCookie := findSetCookie(t, w, constants.CSRFCookieName)
+		if csrfCookie.MaxAge != -1 {
+			t.Errorf("Expected clear CSRF cookie max age -1, got %d", csrfCookie.MaxAge)
+		}
+		if csrfCookie.Value != "" {
+			t.Errorf("Expected cleared CSRF cookie value to be blank, got %q", csrfCookie.Value)
+		}
+		if csrfCookie.HttpOnly {
+			t.Error("Expected cleared CSRF cookie not to be HttpOnly")
+		}
 		assertSetCookieContains(t, w, "SameSite=Lax")
 	})
 
@@ -203,6 +224,10 @@ func (f *fakeAuthService) Logout(_ context.Context, token string) errors.ApiErro
 
 func (f *fakeAuthService) ValidateSession(context.Context, string) (models.User, errors.ApiError) {
 	return models.User{}, nil
+}
+
+func (f *fakeAuthService) ValidateCSRF(context.Context, string, string) errors.ApiError {
+	return nil
 }
 
 func findSetCookie(t *testing.T, w *httptest.ResponseRecorder, name string) *http.Cookie {

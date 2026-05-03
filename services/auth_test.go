@@ -90,6 +90,30 @@ func TestLoginErrors(t *testing.T) {
 	})
 }
 
+func TestLoginCreatesCSRFToken(t *testing.T) {
+	repository := &fakeAuthRepository{}
+	service := NewAuthService(repository)
+
+	response, apiErr := service.Login(
+		context.Background(),
+		dto.LoginRequest{Username: "tiago", Password: "right-password"},
+		dto.LoginSessionInfo{IPAddress: "127.0.0.1"},
+	)
+
+	if apiErr != nil {
+		t.Fatalf("Expected successful login, got status %d", apiErr.GetStatus())
+	}
+	if response.CSRFToken == "" {
+		t.Fatal("Expected CSRF token to be returned for cookie transport")
+	}
+	if repository.upsertSession.CSRFHash == "" {
+		t.Fatal("Expected CSRF hash to be persisted in session")
+	}
+	if repository.upsertSession.CSRFHash == response.CSRFToken {
+		t.Fatal("Expected CSRF token to be hashed before persistence")
+	}
+}
+
 func TestValidateSession(t *testing.T) {
 	t.Run("returns user and touches session", func(t *testing.T) {
 		repository := &fakeAuthRepository{
@@ -150,6 +174,82 @@ func TestValidateSession(t *testing.T) {
 		}
 		if apiErr.GetStatus() != http.StatusInternalServerError {
 			t.Fatalf("Expected status %d, got %d", http.StatusInternalServerError, apiErr.GetStatus())
+		}
+	})
+}
+
+func TestValidateCSRF(t *testing.T) {
+	t.Run("accepts matching csrf token for valid session", func(t *testing.T) {
+		repository := &fakeAuthRepository{
+			session: models.UserSession{CSRFHash: hashSessionToken("csrf-token")},
+		}
+		service := NewAuthService(repository)
+
+		apiErr := service.ValidateCSRF(context.Background(), "session-token", "csrf-token")
+
+		if apiErr != nil {
+			t.Fatalf("Expected valid CSRF token, got status %d", apiErr.GetStatus())
+		}
+	})
+
+	t.Run("rejects missing session token", func(t *testing.T) {
+		repository := &fakeAuthRepository{}
+		service := NewAuthService(repository)
+
+		apiErr := service.ValidateCSRF(context.Background(), "", "csrf-token")
+
+		if apiErr == nil {
+			t.Fatal("Expected invalid CSRF error")
+		}
+		if apiErr.GetStatus() != http.StatusForbidden {
+			t.Fatalf("Expected status %d, got %d", http.StatusForbidden, apiErr.GetStatus())
+		}
+		if repository.findSessionCalled {
+			t.Fatal("Expected session lookup not to be called")
+		}
+	})
+
+	t.Run("rejects missing csrf token", func(t *testing.T) {
+		repository := &fakeAuthRepository{}
+		service := NewAuthService(repository)
+
+		apiErr := service.ValidateCSRF(context.Background(), "session-token", "")
+
+		if apiErr == nil {
+			t.Fatal("Expected invalid CSRF error")
+		}
+		if apiErr.GetStatus() != http.StatusForbidden {
+			t.Fatalf("Expected status %d, got %d", http.StatusForbidden, apiErr.GetStatus())
+		}
+	})
+
+	t.Run("rejects invalid session", func(t *testing.T) {
+		repository := &fakeAuthRepository{findSessionErr: stderrors.New("not found")}
+		service := NewAuthService(repository)
+
+		apiErr := service.ValidateCSRF(context.Background(), "session-token", "csrf-token")
+
+		if apiErr == nil {
+			t.Fatal("Expected invalid CSRF error")
+		}
+		if apiErr.GetStatus() != http.StatusForbidden {
+			t.Fatalf("Expected status %d, got %d", http.StatusForbidden, apiErr.GetStatus())
+		}
+	})
+
+	t.Run("rejects mismatched csrf token", func(t *testing.T) {
+		repository := &fakeAuthRepository{
+			session: models.UserSession{CSRFHash: hashSessionToken("other-token")},
+		}
+		service := NewAuthService(repository)
+
+		apiErr := service.ValidateCSRF(context.Background(), "session-token", "csrf-token")
+
+		if apiErr == nil {
+			t.Fatal("Expected invalid CSRF error")
+		}
+		if apiErr.GetStatus() != http.StatusForbidden {
+			t.Fatalf("Expected status %d, got %d", http.StatusForbidden, apiErr.GetStatus())
 		}
 	})
 }
@@ -253,6 +353,7 @@ type fakeAuthRepository struct {
 	touchErr          error
 	touchedSessionID  uint
 	upsertErr         error
+	upsertSession     models.UserSession
 	user              models.User
 }
 
@@ -292,6 +393,7 @@ func (f *fakeAuthRepository) TouchSession(_ context.Context, sessionID uint, _ t
 	return f.touchErr
 }
 
-func (f *fakeAuthRepository) UpsertSession(context.Context, models.UserSession) error {
+func (f *fakeAuthRepository) UpsertSession(_ context.Context, session models.UserSession) error {
+	f.upsertSession = session
 	return f.upsertErr
 }

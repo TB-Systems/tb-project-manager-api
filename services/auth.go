@@ -21,6 +21,7 @@ import (
 type Auth interface {
 	Login(ctx context.Context, request dto.LoginRequest, sessionInfo dto.LoginSessionInfo) (dto.LoginResponse, errors.ApiError)
 	Logout(ctx context.Context, token string) errors.ApiError
+	ValidateCSRF(ctx context.Context, sessionToken string, csrfToken string) errors.ApiError
 	ValidateSession(ctx context.Context, token string) (models.User, errors.ApiError)
 }
 
@@ -76,11 +77,20 @@ func (a *auth) Login(ctx context.Context, request dto.LoginRequest, sessionInfo 
 		)
 	}
 
+	csrfToken, csrfHash, err := newSessionToken()
+	if err != nil {
+		return dto.LoginResponse{}, errors.NewApiError(
+			http.StatusInternalServerError,
+			errors.InternalServerError("CREATE_CSRF_TOKEN_FAILED"),
+		)
+	}
+
 	now := time.Now().UTC()
 	expiresAt := now.Add(sessionTTL)
 	session := models.UserSession{
 		UserID:     user.ID,
 		TokenHash:  tokenHash,
+		CSRFHash:   csrfHash,
 		UserAgent:  sessionInfo.UserAgent,
 		IPAddress:  sessionInfo.IPAddress,
 		ExpiresAt:  expiresAt,
@@ -101,6 +111,7 @@ func (a *auth) Login(ctx context.Context, request dto.LoginRequest, sessionInfo 
 		Email:        user.Email,
 		CPF:          user.CPF,
 		SessionToken: token,
+		CSRFToken:    csrfToken,
 		ExpiresAt:    expiresAt,
 	}, nil
 }
@@ -152,6 +163,30 @@ func (a *auth) Logout(ctx context.Context, token string) errors.ApiError {
 	}
 
 	return nil
+}
+
+func (a *auth) ValidateCSRF(ctx context.Context, sessionToken string, csrfToken string) errors.ApiError {
+	if sessionToken == "" || csrfToken == "" {
+		return invalidCSRFError()
+	}
+
+	session, err := a.repository.FindValidSessionByTokenHash(ctx, hashSessionToken(sessionToken), time.Now().UTC())
+	if err != nil {
+		return invalidCSRFError()
+	}
+
+	if session.CSRFHash == "" || session.CSRFHash != hashSessionToken(csrfToken) {
+		return invalidCSRFError()
+	}
+
+	return nil
+}
+
+func invalidCSRFError() errors.ApiError {
+	return errors.NewApiError(
+		http.StatusForbidden,
+		errors.BadRequestError("INVALID_CSRF_TOKEN"),
+	)
 }
 
 func hashSessionToken(token string) string {

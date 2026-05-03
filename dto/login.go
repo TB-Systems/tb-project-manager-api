@@ -20,6 +20,7 @@ type LoginResponse struct {
 	Email        string    `json:"email"`
 	CPF          string    `json:"cpf"`
 	SessionToken string    `json:"-"`
+	CSRFToken    string    `json:"-"`
 	ExpiresAt    time.Time `json:"expires_at"`
 }
 

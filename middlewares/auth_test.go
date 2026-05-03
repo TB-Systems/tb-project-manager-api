@@ -116,3 +116,7 @@ func (f *fakeAuthService) ValidateSession(_ context.Context, token string) (mode
 
 	return f.user, nil
 }
+
+func (f *fakeAuthService) ValidateCSRF(context.Context, string, string) errors.ApiError {
+	return nil
+}

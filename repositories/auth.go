@@ -82,6 +82,7 @@ func (a auth) UpsertSession(ctx context.Context, session models.UserSession) err
 		Columns: []clause.Column{{Name: "user_id"}},
 		DoUpdates: clause.Assignments(map[string]interface{}{
 			"token_hash":   session.TokenHash,
+			"csrf_hash":    session.CSRFHash,
 			"user_agent":   session.UserAgent,
 			"ip_address":   session.IPAddress,
 			"expires_at":   session.ExpiresAt,

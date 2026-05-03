@@ -38,6 +38,7 @@ func (h *Auth) Login() gin.HandlerFunc {
 		}
 
 		utils.SetSessionToken(c, constants.SessionCookieName, data.SessionToken, data.ExpiresAt)
+		utils.SetCSRFToken(c, constants.CSRFCookieName, data.CSRFToken, data.ExpiresAt)
 
 		utils.SendResponse(c, data, http.StatusOK)
 	}
@@ -53,6 +54,7 @@ func (h *Auth) Logout() gin.HandlerFunc {
 		}
 
 		utils.ClearSessionToken(c, constants.SessionCookieName)
+		utils.ClearCSRFToken(c, constants.CSRFCookieName)
 		utils.SendResponse(c, gin.H{"logged_out": true}, http.StatusOK)
 	}
 }
