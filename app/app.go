@@ -20,11 +20,13 @@ type App struct {
 func NewApp(router *gin.Engine, db *gorm.DB, cfg config.Config) *App {
 	authRepository := repositories.NewAuthRepository(db)
 	authService := services.NewAuthService(authRepository)
+	projectRepository := repositories.NewProjectRepository(db)
+	projectService := services.NewProjectService(projectRepository)
 
 	return &App{
 		Router:          router,
 		Config:          cfg,
-		ProjectsHandler: handlers.NewProjectHandler(),
+		ProjectsHandler: handlers.NewProjectHandler(projectService),
 		AuthHandler:     handlers.NewAuthHandler(authService),
 		AuthService:     authService,
 	}

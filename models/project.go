@@ -15,6 +15,15 @@ const (
 	ProjectTypeMobile   ProjectType = 3
 )
 
+func (t ProjectType) IsValid() bool {
+	switch t {
+	case ProjectTypeBackend, ProjectTypeFrontend, ProjectTypeMobile:
+		return true
+	default:
+		return false
+	}
+}
+
 type ProjectStatus int
 
 const (
@@ -23,6 +32,15 @@ const (
 	ProjectStatusStaging    ProjectStatus = 3
 	ProjectStatusLive       ProjectStatus = 4
 )
+
+func (s ProjectStatus) IsValid() bool {
+	switch s {
+	case ProjectStatusBacklog, ProjectStatusDeveloping, ProjectStatusStaging, ProjectStatusLive:
+		return true
+	default:
+		return false
+	}
+}
 
 type Project struct {
 	ID                    uuid.UUID     `gorm:"type:uuid;primaryKey" json:"id"`

@@ -42,10 +42,13 @@ func TestRegisterRoutes(t *testing.T) {
 
 	routes := router.Routes()
 	expectedRoutes := map[string]bool{
-		"GET /api/v1/projects":     false,
-		"POST /api/v1/projects":    false,
-		"POST /api/v1/auth/login":  false,
-		"POST /api/v1/auth/logout": false,
+		"GET /api/v1/projects":        false,
+		"GET /api/v1/projects/:id":    false,
+		"POST /api/v1/projects":       false,
+		"PUT /api/v1/projects/:id":    false,
+		"DELETE /api/v1/projects/:id": false,
+		"POST /api/v1/auth/login":     false,
+		"POST /api/v1/auth/logout":    false,
 	}
 
 	for _, route := range routes {
