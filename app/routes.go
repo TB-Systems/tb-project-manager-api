@@ -34,6 +34,16 @@ func (a *App) RegisterRoutes() {
 		projects.DELETE("/:id", a.ProjectsHandler.Delete())
 	}
 
+	customers := api.Group("/customers")
+	customers.Use(middlewares.AuthRequired(a.AuthService), a.csrfMiddleware())
+	{
+		customers.GET("", a.CustomersHandler.List())
+		customers.GET("/:id", a.CustomersHandler.FindByID())
+		customers.POST("", a.CustomersHandler.Create())
+		customers.PUT("/:id", a.CustomersHandler.Update())
+		customers.DELETE("/:id", a.CustomersHandler.Delete())
+	}
+
 	auth := api.Group("/auth")
 	{
 		auth.POST("/login", a.AuthHandler.Login())

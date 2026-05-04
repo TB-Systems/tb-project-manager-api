@@ -25,6 +25,9 @@ func TestNewApp(t *testing.T) {
 	if app.ProjectsHandler == nil {
 		t.Fatal("Expected projects handler to be initialized")
 	}
+	if app.CustomersHandler == nil {
+		t.Fatal("Expected customers handler to be initialized")
+	}
 	if app.AuthHandler == nil {
 		t.Fatal("Expected auth handler to be initialized")
 	}
@@ -42,13 +45,18 @@ func TestRegisterRoutes(t *testing.T) {
 
 	routes := router.Routes()
 	expectedRoutes := map[string]bool{
-		"GET /api/v1/projects":        false,
-		"GET /api/v1/projects/:id":    false,
-		"POST /api/v1/projects":       false,
-		"PUT /api/v1/projects/:id":    false,
-		"DELETE /api/v1/projects/:id": false,
-		"POST /api/v1/auth/login":     false,
-		"POST /api/v1/auth/logout":    false,
+		"GET /api/v1/projects":         false,
+		"GET /api/v1/projects/:id":     false,
+		"POST /api/v1/projects":        false,
+		"PUT /api/v1/projects/:id":     false,
+		"DELETE /api/v1/projects/:id":  false,
+		"GET /api/v1/customers":        false,
+		"GET /api/v1/customers/:id":    false,
+		"POST /api/v1/customers":       false,
+		"PUT /api/v1/customers/:id":    false,
+		"DELETE /api/v1/customers/:id": false,
+		"POST /api/v1/auth/login":      false,
+		"POST /api/v1/auth/logout":     false,
 	}
 
 	for _, route := range routes {
@@ -67,6 +75,17 @@ func TestRegisterRoutes(t *testing.T) {
 	t.Run("protected project route rejects missing session", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/projects", nil)
+
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusUnauthorized {
+			t.Fatalf("Expected status %d, got %d", http.StatusUnauthorized, w.Code)
+		}
+	})
+
+	t.Run("protected customer route rejects missing session", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/customers", nil)
 
 		router.ServeHTTP(w, req)
 
