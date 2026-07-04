@@ -1,0 +1,282 @@
+{
+  "info": {
+    "_postman_id": "f49f9333-bd5b-4d5b-95d2-36ab07f39380",
+    "name": "tb-project-manager-api - Local",
+    "description": "Collection local do tb-project-manager-api. Endpoints protegidos usam cookie de sessao e header X-CSRF-Token. Preencha username/password no environment antes de usar.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const csrfToken = pm.environment.get('csrfToken');",
+          "",
+          "if (csrfToken) {",
+          "  pm.request.headers.upsert({ key: 'X-CSRF-Token', value: csrfToken });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "apiPrefix",
+      "value": "/api/v1"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const setCookieHeaders = pm.response.headers.all()",
+                  "  .filter((header) => header.key.toLowerCase() === 'set-cookie')",
+                  "  .map((header) => header.value);",
+                  "",
+                  "const csrfCookie = setCookieHeaders.find((value) => value.startsWith('project_manager_csrf='));",
+                  "",
+                  "if (csrfCookie) {",
+                  "  const csrfToken = csrfCookie.split(';')[0].split('=')[1];",
+                  "  pm.environment.set('csrfToken', csrfToken);",
+                  "}",
+                  "",
+                  "const body = pm.response.json();",
+                  "if (body && body.id) {",
+                  "  pm.environment.set('userId', String(body.id));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": "{{baseUrl}}{{apiPrefix}}/auth/login",
+            "description": "Faz login e salva o cookie CSRF no environment como `csrfToken`."
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status code is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.environment.unset('csrfToken');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}{{apiPrefix}}/auth/logout"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Customers",
+      "item": [
+        {
+          "name": "List Customers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}{{apiPrefix}}/customers?page={{page}}&limit={{limit}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Find Customer By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}{{apiPrefix}}/customers/{{customerId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status code is 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "if (body && body.id) {",
+                  "  pm.environment.set('customerId', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Cliente Exemplo\",\n  \"slug\": \"cliente-exemplo\",\n  \"document\": \"11144477735\",\n  \"document_type\": 1,\n  \"email\": \"cliente.exemplo@tb.local\",\n  \"phone\": \"+55 11 99999-9999\",\n  \"status\": 1,\n  \"url\": \"https://cliente-exemplo.local\"\n}"
+            },
+            "url": "{{baseUrl}}{{apiPrefix}}/customers",
+            "description": "Document type: 1=CPF, 2=CNPJ, 3=Other. Status: 1=Active, 2=Canceled, 3=Suspended, 4=Onboarding, 5=LateMonthlyPayment."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Customer",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Cliente Exemplo Atualizado\",\n  \"slug\": \"cliente-exemplo\",\n  \"document\": \"11144477735\",\n  \"document_type\": 1,\n  \"email\": \"cliente.exemplo@tb.local\",\n  \"phone\": \"+55 11 98888-8888\",\n  \"status\": 4,\n  \"url\": \"https://cliente-exemplo.local/app\"\n}"
+            },
+            "url": "{{baseUrl}}{{apiPrefix}}/customers/{{customerId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Customer",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}{{apiPrefix}}/customers/{{customerId}}"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Projects",
+      "item": [
+        {
+          "name": "List Projects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}{{apiPrefix}}/projects?page={{page}}&limit={{limit}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Find Project By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}{{apiPrefix}}/projects/{{projectId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Project",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status code is 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "if (body && body.id) {",
+                  "  pm.environment.set('projectId', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Project Manager API\",\n  \"slug\": \"project-manager-api\",\n  \"type\": 1,\n  \"base_url\": \"http://localhost:3000\",\n  \"repo_url\": \"https://github.com/TB-Systems/tb-project-manager-api\",\n  \"shared_value\": 1000,\n  \"dedicated_value\": 2500,\n  \"support_shared_value\": 300,\n  \"support_dedicated_value\": 800,\n  \"status\": 2\n}"
+            },
+            "url": "{{baseUrl}}{{apiPrefix}}/projects",
+            "description": "Type: 1=Backend, 2=Frontend, 3=Mobile. Status: 1=Backlog, 2=Developing, 3=Staging, 4=Live."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Project",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Project Manager API Atualizado\",\n  \"slug\": \"project-manager-api\",\n  \"type\": 1,\n  \"base_url\": \"http://localhost:3000/api\",\n  \"repo_url\": \"https://github.com/TB-Systems/tb-project-manager-api\",\n  \"shared_value\": 1200,\n  \"dedicated_value\": 2700,\n  \"support_shared_value\": 350,\n  \"support_dedicated_value\": 900,\n  \"status\": 3\n}"
+            },
+            "url": "{{baseUrl}}{{apiPrefix}}/projects/{{projectId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Project",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}{{apiPrefix}}/projects/{{projectId}}"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
