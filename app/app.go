@@ -17,6 +17,7 @@ type App struct {
 	CustomerProjectsHandler *handlers.CustomerProject
 	ProjectServicesHandler  *handlers.ProjectService
 	ServiceChecksHandler    *handlers.ServiceCheck
+	ServiceLogsHandler      *handlers.ServiceLog
 	AuthHandler             *handlers.Auth
 	AuthService             services.Auth
 }
@@ -34,6 +35,8 @@ func NewApp(router *gin.Engine, db *gorm.DB, cfg config.Config) *App {
 	projectServiceService := services.NewProjectServiceService(projectServiceRepository)
 	serviceCheckRepository := repositories.NewServiceCheckRepository(db)
 	serviceCheckService := services.NewServiceCheckService(serviceCheckRepository)
+	serviceLogRepository := repositories.NewServiceLogRepository(db)
+	serviceLogService := services.NewServiceLogService(serviceLogRepository)
 
 	return &App{
 		Router:                  router,
@@ -43,6 +46,7 @@ func NewApp(router *gin.Engine, db *gorm.DB, cfg config.Config) *App {
 		CustomerProjectsHandler: handlers.NewCustomerProjectHandler(customerProjectService),
 		ProjectServicesHandler:  handlers.NewProjectServiceHandler(projectServiceService),
 		ServiceChecksHandler:    handlers.NewServiceCheckHandler(serviceCheckService),
+		ServiceLogsHandler:      handlers.NewServiceLogHandler(serviceLogService),
 		AuthHandler:             handlers.NewAuthHandler(authService),
 		AuthService:             authService,
 	}

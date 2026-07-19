@@ -28,6 +28,21 @@
   ],
   "item": [
     {
+      "name": "Healthcheck",
+      "item": [
+        {
+          "name": "Healthcheck",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}{{apiPrefix}}/healthcheck",
+            "description": "Retorna 200 quando a API esta no ar."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Auth",
       "item": [
         {
@@ -282,7 +297,44 @@
       "name": "Customer Projects",
       "item": [
         {
+          "name": "List Customer Projects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}{{apiPrefix}}/customer-projects?page={{page}}&limit={{limit}}",
+            "description": "Lista os vinculos entre clientes e projetos."
+          },
+          "response": []
+        },
+        {
+          "name": "Find Customer Project By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}{{apiPrefix}}/customer-projects/{{customerProjectId}}"
+          },
+          "response": []
+        },
+        {
           "name": "Create Customer Project",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status code is 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "if (body && body.id) {",
+                  "  pm.environment.set('customerProjectId', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
@@ -295,7 +347,36 @@
               "mode": "raw",
               "raw": "{\n  \"project_id\": \"{{projectId}}\",\n  \"customer_id\": \"{{customerId}}\",\n  \"project_value\": 250000,\n  \"monthly_value\": 15000,\n  \"due_day\": 10,\n  \"project_payment_status\": 1,\n  \"last_payment\": null\n}"
             },
-            "url": "{{baseUrl}}{{apiPrefix}}/customer-projects"
+            "url": "{{baseUrl}}{{apiPrefix}}/customer-projects",
+            "description": "Payment status: 1=FirstHalfPending, 2=FirstHalfPaid, 3=SecondHalfPending, 4=SecondHalfPaid."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Customer Project",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"project_id\": \"{{projectId}}\",\n  \"customer_id\": \"{{customerId}}\",\n  \"project_value\": 300000,\n  \"monthly_value\": 18000,\n  \"due_day\": 15,\n  \"project_payment_status\": 2,\n  \"last_payment\": null\n}"
+            },
+            "url": "{{baseUrl}}{{apiPrefix}}/customer-projects/{{customerProjectId}}",
+            "description": "Atualiza os dados comerciais do vinculo cliente/projeto."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Customer Project",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}{{apiPrefix}}/customer-projects/{{customerProjectId}}"
           },
           "response": []
         }
@@ -305,6 +386,25 @@
       "name": "Project Services",
       "item": [
         {
+          "name": "List Project Services",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}{{apiPrefix}}/project-services?page={{page}}&limit={{limit}}",
+            "description": "Lista os servicos monitoraveis dos projetos."
+          },
+          "response": []
+        },
+        {
+          "name": "Find Project Service By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}{{apiPrefix}}/project-services/{{projectServiceId}}"
+          },
+          "response": []
+        },
+        {
           "name": "Create Project Service",
           "event": [
             {
@@ -312,6 +412,10 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
+                  "pm.test('status code is 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "",
                   "const body = pm.response.json();",
                   "if (body && body.id) {",
                   "  pm.environment.set('projectServiceId', body.id);",
@@ -334,6 +438,34 @@
             },
             "url": "{{baseUrl}}{{apiPrefix}}/project-services",
             "description": "Type: 1=Backend, 2=Frontend, 3=Android, 4=iOS, 5=Desktop, 6=Automation, 7=Database, 8=Other."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Project Service",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"project_id\": \"{{projectId}}\",\n  \"name\": \"Project Manager API Atualizada\",\n  \"type\": 1,\n  \"url\": \"http://localhost:8080\",\n  \"repo_url\": \"https://github.com/TB-Systems/tb-project-manager-api\",\n  \"status\": 5,\n  \"health_check_url\": \"http://localhost:8080/health\"\n}"
+            },
+            "url": "{{baseUrl}}{{apiPrefix}}/project-services/{{projectServiceId}}",
+            "description": "Status usa project_status: 1=Backlog, 2=Discovery, 3=Developing, 4=Staging, 5=Live, 6=Paused, 7=Down, 8=Archived."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Project Service",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}{{apiPrefix}}/project-services/{{projectServiceId}}"
           },
           "response": []
         }
@@ -359,6 +491,67 @@
             "header": [],
             "url": "{{baseUrl}}{{apiPrefix}}/service-checks/{{serviceCheckId}}",
             "description": "Status: 1=Online, 2=Offline."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Service Logs",
+      "item": [
+        {
+          "name": "List Service Logs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}{{apiPrefix}}/service-logs?page={{page}}&limit={{limit}}",
+            "description": "Log level: 1=Info, 2=Success, 3=Warning, 4=Error, 5=Critical."
+          },
+          "response": []
+        },
+        {
+          "name": "Find Service Log By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}{{apiPrefix}}/service-logs/{{serviceLogId}}"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Service Log",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status code is 201', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "if (body && body.id) {",
+                  "  pm.environment.set('serviceLogId', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"project_service_id\": \"{{projectServiceId}}\",\n  \"level\": 1,\n  \"event\": \"healthcheck.online\",\n  \"message\": {\"ok\": true, \"status_code\": 200},\n  \"time\": \"2026-07-19T12:30:00Z\"\n}"
+            },
+            "url": "{{baseUrl}}{{apiPrefix}}/service-logs",
+            "description": "Append-only. Log level: 1=Info, 2=Success, 3=Warning, 4=Error, 5=Critical."
           },
           "response": []
         }

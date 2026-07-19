@@ -40,6 +40,9 @@ func TestNewApp(t *testing.T) {
 	if app.ServiceChecksHandler == nil {
 		t.Fatal("Expected service checks handler to be initialized")
 	}
+	if app.ServiceLogsHandler == nil {
+		t.Fatal("Expected service logs handler to be initialized")
+	}
 	if app.AuthService == nil {
 		t.Fatal("Expected auth service to be initialized")
 	}
@@ -54,6 +57,7 @@ func TestRegisterRoutes(t *testing.T) {
 
 	routes := router.Routes()
 	expectedRoutes := map[string]bool{
+		"GET /api/v1/healthcheck":              false,
 		"GET /api/v1/projects":                 false,
 		"GET /api/v1/projects/:id":             false,
 		"POST /api/v1/projects":                false,
@@ -76,6 +80,9 @@ func TestRegisterRoutes(t *testing.T) {
 		"DELETE /api/v1/project-services/:id":  false,
 		"GET /api/v1/service-checks":           false,
 		"GET /api/v1/service-checks/:id":       false,
+		"GET /api/v1/service-logs":             false,
+		"GET /api/v1/service-logs/:id":         false,
+		"POST /api/v1/service-logs":            false,
 		"POST /api/v1/auth/login":              false,
 		"POST /api/v1/auth/logout":             false,
 	}
@@ -92,6 +99,17 @@ func TestRegisterRoutes(t *testing.T) {
 			t.Fatalf("Expected route %s to be registered", route)
 		}
 	}
+
+	t.Run("healthcheck returns ok without session", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/healthcheck", nil)
+
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("Expected status %d, got %d", http.StatusOK, w.Code)
+		}
+	})
 
 	t.Run("protected project route rejects missing session", func(t *testing.T) {
 		w := httptest.NewRecorder()

@@ -1,6 +1,8 @@
 package app
 
 import (
+	"net/http"
+
 	"github.com/TB-Systems/go-commons/utils"
 	"github.com/TB-Systems/tb-project-manager-api/constants"
 	"github.com/TB-Systems/tb-project-manager-api/middlewares"
@@ -23,6 +25,9 @@ func (a *App) RegisterRoutes() {
 	)
 
 	api := a.Router.Group("/api/v1")
+	api.GET("/healthcheck", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
 
 	projects := api.Group("/projects")
 	projects.Use(middlewares.AuthRequired(a.AuthService), a.csrfMiddleware())
@@ -69,6 +74,14 @@ func (a *App) RegisterRoutes() {
 	{
 		serviceChecks.GET("", a.ServiceChecksHandler.List())
 		serviceChecks.GET("/:id", a.ServiceChecksHandler.FindByID())
+	}
+
+	serviceLogs := api.Group("/service-logs")
+	serviceLogs.Use(middlewares.AuthRequired(a.AuthService), a.csrfMiddleware())
+	{
+		serviceLogs.GET("", a.ServiceLogsHandler.List())
+		serviceLogs.GET("/:id", a.ServiceLogsHandler.FindByID())
+		serviceLogs.POST("", a.ServiceLogsHandler.Create())
 	}
 
 	auth := api.Group("/auth")
