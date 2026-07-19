@@ -70,16 +70,11 @@ func (p project) Update(ctx context.Context, project models.Project) (models.Pro
 		Model(&models.Project{}).
 		Where("id = ?", project.ID).
 		Updates(map[string]interface{}{
-			"name":                    project.Name,
-			"slug":                    project.Slug,
-			"type":                    project.Type,
-			"base_url":                project.BaseURL,
-			"repo_url":                project.RepoURL,
-			"shared_value":            project.SharedValue,
-			"dedicated_value":         project.DedicatedValue,
-			"support_shared_value":    project.SupportSharedValue,
-			"support_dedicated_value": project.SupportDedicatedValue,
-			"status":                  project.Status,
+			"name":        project.Name,
+			"description": project.Description,
+			"slug":        project.Slug,
+			"repo_url":    project.RepoURL,
+			"status":      project.Status,
 		}).
 		Error
 	if err != nil {

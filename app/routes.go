@@ -44,6 +44,33 @@ func (a *App) RegisterRoutes() {
 		customers.DELETE("/:id", a.CustomersHandler.Delete())
 	}
 
+	customerProjects := api.Group("/customer-projects")
+	customerProjects.Use(middlewares.AuthRequired(a.AuthService), a.csrfMiddleware())
+	{
+		customerProjects.GET("", a.CustomerProjectsHandler.List())
+		customerProjects.GET("/:id", a.CustomerProjectsHandler.FindByID())
+		customerProjects.POST("", a.CustomerProjectsHandler.Create())
+		customerProjects.PUT("/:id", a.CustomerProjectsHandler.Update())
+		customerProjects.DELETE("/:id", a.CustomerProjectsHandler.Delete())
+	}
+
+	projectServices := api.Group("/project-services")
+	projectServices.Use(middlewares.AuthRequired(a.AuthService), a.csrfMiddleware())
+	{
+		projectServices.GET("", a.ProjectServicesHandler.List())
+		projectServices.GET("/:id", a.ProjectServicesHandler.FindByID())
+		projectServices.POST("", a.ProjectServicesHandler.Create())
+		projectServices.PUT("/:id", a.ProjectServicesHandler.Update())
+		projectServices.DELETE("/:id", a.ProjectServicesHandler.Delete())
+	}
+
+	serviceChecks := api.Group("/service-checks")
+	serviceChecks.Use(middlewares.AuthRequired(a.AuthService), a.csrfMiddleware())
+	{
+		serviceChecks.GET("", a.ServiceChecksHandler.List())
+		serviceChecks.GET("/:id", a.ServiceChecksHandler.FindByID())
+	}
+
 	auth := api.Group("/auth")
 	{
 		auth.POST("/login", a.AuthHandler.Login())

@@ -31,6 +31,15 @@ func TestNewApp(t *testing.T) {
 	if app.AuthHandler == nil {
 		t.Fatal("Expected auth handler to be initialized")
 	}
+	if app.CustomerProjectsHandler == nil {
+		t.Fatal("Expected customer projects handler to be initialized")
+	}
+	if app.ProjectServicesHandler == nil {
+		t.Fatal("Expected project services handler to be initialized")
+	}
+	if app.ServiceChecksHandler == nil {
+		t.Fatal("Expected service checks handler to be initialized")
+	}
 	if app.AuthService == nil {
 		t.Fatal("Expected auth service to be initialized")
 	}
@@ -45,18 +54,30 @@ func TestRegisterRoutes(t *testing.T) {
 
 	routes := router.Routes()
 	expectedRoutes := map[string]bool{
-		"GET /api/v1/projects":         false,
-		"GET /api/v1/projects/:id":     false,
-		"POST /api/v1/projects":        false,
-		"PUT /api/v1/projects/:id":     false,
-		"DELETE /api/v1/projects/:id":  false,
-		"GET /api/v1/customers":        false,
-		"GET /api/v1/customers/:id":    false,
-		"POST /api/v1/customers":       false,
-		"PUT /api/v1/customers/:id":    false,
-		"DELETE /api/v1/customers/:id": false,
-		"POST /api/v1/auth/login":      false,
-		"POST /api/v1/auth/logout":     false,
+		"GET /api/v1/projects":                 false,
+		"GET /api/v1/projects/:id":             false,
+		"POST /api/v1/projects":                false,
+		"PUT /api/v1/projects/:id":             false,
+		"DELETE /api/v1/projects/:id":          false,
+		"GET /api/v1/customers":                false,
+		"GET /api/v1/customers/:id":            false,
+		"POST /api/v1/customers":               false,
+		"PUT /api/v1/customers/:id":            false,
+		"DELETE /api/v1/customers/:id":         false,
+		"GET /api/v1/customer-projects":        false,
+		"GET /api/v1/customer-projects/:id":    false,
+		"POST /api/v1/customer-projects":       false,
+		"PUT /api/v1/customer-projects/:id":    false,
+		"DELETE /api/v1/customer-projects/:id": false,
+		"GET /api/v1/project-services":         false,
+		"GET /api/v1/project-services/:id":     false,
+		"POST /api/v1/project-services":        false,
+		"PUT /api/v1/project-services/:id":     false,
+		"DELETE /api/v1/project-services/:id":  false,
+		"GET /api/v1/service-checks":           false,
+		"GET /api/v1/service-checks/:id":       false,
+		"POST /api/v1/auth/login":              false,
+		"POST /api/v1/auth/logout":             false,
 	}
 
 	for _, route := range routes {

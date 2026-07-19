@@ -19,10 +19,11 @@ func TestProjectServiceCreate(t *testing.T) {
 		service := NewProjectService(repository)
 
 		response, apiErr := service.Create(context.Background(), dto.ProjectRequest{
-			Name:   " TB Manager ",
-			Slug:   " tb-manager ",
-			Type:   models.ProjectTypeBackend,
-			Status: models.ProjectStatusBacklog,
+			Name:        " TB Manager ",
+			Description: " Internal manager ",
+			Slug:        " tb-manager ",
+			RepoURL:     " https://github.com/TB-Systems/tb-manager ",
+			Status:      models.ProjectStatusBacklog,
 		})
 
 		if apiErr != nil {
@@ -34,6 +35,9 @@ func TestProjectServiceCreate(t *testing.T) {
 		if response.Slug != "tb-manager" {
 			t.Fatalf("Expected created response slug, got %q", response.Slug)
 		}
+		if repository.createdProject.Description != "Internal manager" {
+			t.Fatalf("Expected trimmed project description, got %q", repository.createdProject.Description)
+		}
 	})
 
 	t.Run("rejects duplicated slug", func(t *testing.T) {
@@ -43,7 +47,6 @@ func TestProjectServiceCreate(t *testing.T) {
 		_, apiErr := service.Create(context.Background(), dto.ProjectRequest{
 			Name:   "TB Manager",
 			Slug:   "tb-manager",
-			Type:   models.ProjectTypeBackend,
 			Status: models.ProjectStatusBacklog,
 		})
 
@@ -116,7 +119,6 @@ func TestProjectServiceUpdateAndDelete(t *testing.T) {
 		response, apiErr := service.Update(context.Background(), id.String(), dto.ProjectRequest{
 			Name:   "TB Manager",
 			Slug:   "tb-manager",
-			Type:   models.ProjectTypeBackend,
 			Status: models.ProjectStatusDeveloping,
 		})
 
