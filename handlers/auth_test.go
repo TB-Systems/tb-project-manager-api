@@ -185,10 +185,91 @@ func TestLogout(t *testing.T) {
 	})
 }
 
+func TestSession(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	t.Run("returns current authenticated session", func(t *testing.T) {
+		expiresAt := time.Now().Add(time.Hour)
+		service := &fakeAuthService{
+			sessionResponse: dto.AuthSessionResponse{
+				ID:        1,
+				Name:      "Tiago",
+				Username:  "tiago",
+				Email:     "tiago@example.com",
+				CPF:       "00000000000",
+				ExpiresAt: expiresAt,
+			},
+		}
+		router := authRouter(service)
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/auth/session", nil)
+		req.AddCookie(&http.Cookie{Name: constants.SessionCookieName, Value: "session-token"})
+
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("Expected status %d, got %d", http.StatusOK, w.Code)
+		}
+		if !service.sessionCalled {
+			t.Fatal("Expected session service to be called")
+		}
+		if service.sessionToken != "session-token" {
+			t.Fatalf("Expected session token %q, got %q", "session-token", service.sessionToken)
+		}
+
+		var response map[string]interface{}
+		if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+			t.Fatalf("Expected valid JSON response: %v", err)
+		}
+		if response["username"] != "tiago" {
+			t.Fatalf("Expected username %q, got %q", "tiago", response["username"])
+		}
+		if _, exists := response["session_token"]; exists {
+			t.Fatal("Expected session_token to be omitted from JSON response")
+		}
+	})
+
+	t.Run("returns unauthorized without session cookie", func(t *testing.T) {
+		service := &fakeAuthService{}
+		router := authRouter(service)
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/auth/session", nil)
+
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusUnauthorized {
+			t.Fatalf("Expected status %d, got %d", http.StatusUnauthorized, w.Code)
+		}
+		if service.sessionCalled {
+			t.Fatal("Expected session service not to be called")
+		}
+	})
+
+	t.Run("returns service error for invalid session", func(t *testing.T) {
+		service := &fakeAuthService{
+			sessionErr: errors.NewApiError(
+				http.StatusUnauthorized,
+				errors.BadRequestError("INVALID_SESSION"),
+			),
+		}
+		router := authRouter(service)
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/auth/session", nil)
+		req.AddCookie(&http.Cookie{Name: constants.SessionCookieName, Value: "bad-token"})
+
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusUnauthorized {
+			t.Fatalf("Expected status %d, got %d", http.StatusUnauthorized, w.Code)
+		}
+	})
+}
+
 func authRouter(service *fakeAuthService) *gin.Engine {
 	router := gin.New()
 	handler := NewAuthHandler(service)
 	router.POST("/auth/login", handler.Login())
+	router.GET("/auth/session", handler.Session())
 	router.POST("/auth/logout", handler.Logout())
 	return router
 }
@@ -202,6 +283,10 @@ type fakeAuthService struct {
 	logoutCalled     bool
 	logoutErr        errors.ApiError
 	logoutToken      string
+	sessionCalled    bool
+	sessionErr       errors.ApiError
+	sessionResponse  dto.AuthSessionResponse
+	sessionToken     string
 }
 
 func (f *fakeAuthService) Login(_ context.Context, request dto.LoginRequest, sessionInfo dto.LoginSessionInfo) (dto.LoginResponse, errors.ApiError) {
@@ -220,6 +305,17 @@ func (f *fakeAuthService) Logout(_ context.Context, token string) errors.ApiErro
 	f.logoutCalled = true
 	f.logoutToken = token
 	return f.logoutErr
+}
+
+func (f *fakeAuthService) Session(_ context.Context, token string) (dto.AuthSessionResponse, errors.ApiError) {
+	f.sessionCalled = true
+	f.sessionToken = token
+
+	if f.sessionErr != nil {
+		return dto.AuthSessionResponse{}, f.sessionErr
+	}
+
+	return f.sessionResponse, nil
 }
 
 func (f *fakeAuthService) ValidateSession(context.Context, string) (models.User, errors.ApiError) {

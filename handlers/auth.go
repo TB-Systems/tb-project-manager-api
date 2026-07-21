@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 
+	"github.com/TB-Systems/go-commons/errors"
 	"github.com/TB-Systems/go-commons/utils"
 	"github.com/TB-Systems/tb-project-manager-api/constants"
 	"github.com/TB-Systems/tb-project-manager-api/dto"
@@ -39,6 +40,31 @@ func (h *Auth) Login() gin.HandlerFunc {
 
 		utils.SetSessionToken(c, constants.SessionCookieName, data.SessionToken, data.ExpiresAt)
 		utils.SetCSRFToken(c, constants.CSRFCookieName, data.CSRFToken, data.ExpiresAt)
+
+		utils.SendResponse(c, data, http.StatusOK)
+	}
+}
+
+func invalidSession() errors.ApiError {
+	return errors.NewApiError(
+		http.StatusUnauthorized,
+		errors.BadRequestError("INVALID_SESSION"),
+	)
+}
+
+func (h *Auth) Session() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token, err := c.Cookie(constants.SessionCookieName)
+		if err != nil {
+			utils.SendErrorResponse(c, invalidSession())
+			return
+		}
+
+		data, apiErr := h.service.Session(c.Request.Context(), token)
+		if apiErr != nil {
+			utils.SendErrorResponse(c, apiErr)
+			return
+		}
 
 		utils.SendResponse(c, data, http.StatusOK)
 	}

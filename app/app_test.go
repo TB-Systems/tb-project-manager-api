@@ -56,6 +56,7 @@ func TestRegisterRoutes(t *testing.T) {
 		"PUT /api/v1/customers/:id":    false,
 		"DELETE /api/v1/customers/:id": false,
 		"POST /api/v1/auth/login":      false,
+		"GET /api/v1/auth/session":     false,
 		"POST /api/v1/auth/logout":     false,
 	}
 

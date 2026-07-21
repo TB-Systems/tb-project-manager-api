@@ -21,6 +21,7 @@ import (
 type Auth interface {
 	Login(ctx context.Context, request dto.LoginRequest, sessionInfo dto.LoginSessionInfo) (dto.LoginResponse, errors.ApiError)
 	Logout(ctx context.Context, token string) errors.ApiError
+	Session(ctx context.Context, token string) (dto.AuthSessionResponse, errors.ApiError)
 	ValidateCSRF(ctx context.Context, sessionToken string, csrfToken string) errors.ApiError
 	ValidateSession(ctx context.Context, token string) (models.User, errors.ApiError)
 }
@@ -128,23 +129,48 @@ func newSessionToken() (string, string, error) {
 }
 
 func (a *auth) ValidateSession(ctx context.Context, token string) (models.User, errors.ApiError) {
+	session, apiErr := a.validSession(ctx, token)
+	if apiErr != nil {
+		return models.User{}, apiErr
+	}
+
+	return session.User, nil
+}
+
+func (a *auth) Session(ctx context.Context, token string) (dto.AuthSessionResponse, errors.ApiError) {
+	session, apiErr := a.validSession(ctx, token)
+	if apiErr != nil {
+		return dto.AuthSessionResponse{}, apiErr
+	}
+
+	return dto.AuthSessionResponse{
+		ID:        session.User.ID,
+		Name:      session.User.Name,
+		Username:  session.User.Username,
+		Email:     session.User.Email,
+		CPF:       session.User.CPF,
+		ExpiresAt: session.ExpiresAt,
+	}, nil
+}
+
+func (a *auth) validSession(ctx context.Context, token string) (models.UserSession, errors.ApiError) {
 	now := time.Now().UTC()
 	session, err := a.repository.FindValidSessionByTokenHash(ctx, hashSessionToken(token), now)
 	if err != nil {
-		return models.User{}, errors.NewApiError(
+		return models.UserSession{}, errors.NewApiError(
 			http.StatusUnauthorized,
 			errors.BadRequestError("INVALID_SESSION"),
 		)
 	}
 
 	if err := a.repository.TouchSession(ctx, session.ID, now); err != nil {
-		return models.User{}, errors.NewApiError(
+		return models.UserSession{}, errors.NewApiError(
 			http.StatusInternalServerError,
 			errors.InternalServerError("UPDATE_SESSION_FAILED"),
 		)
 	}
 
-	return session.User, nil
+	return session, nil
 }
 
 func (a *auth) Logout(ctx context.Context, token string) errors.ApiError {

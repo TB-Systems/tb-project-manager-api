@@ -24,6 +24,15 @@ type LoginResponse struct {
 	ExpiresAt    time.Time `json:"expires_at"`
 }
 
+type AuthSessionResponse struct {
+	ID        uint      `json:"id"`
+	Name      string    `json:"name"`
+	Username  string    `json:"username"`
+	Email     string    `json:"email"`
+	CPF       string    `json:"cpf"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
 type LoginSessionInfo struct {
 	UserAgent string
 	IPAddress string
