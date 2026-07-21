@@ -30,7 +30,7 @@ func (s ProjectPaymentStatus) IsValid() bool {
 
 type CustomerProject struct {
 	ID                   uuid.UUID            `gorm:"type:uuid;primaryKey" json:"id"`
-	ProjectID            uuid.UUID            `gorm:"type:uuid;not null;index;uniqueIndex:idx_customer_project_pair" json:"project_id"`
+	ProjectID            uuid.UUID            `gorm:"type:uuid;not null;uniqueIndex;uniqueIndex:idx_customer_project_pair" json:"project_id"`
 	CustomerID           uuid.UUID            `gorm:"type:uuid;not null;index;uniqueIndex:idx_customer_project_pair" json:"customer_id"`
 	ProjectValue         int                  `gorm:"not null;default:0" json:"project_value"`
 	MonthlyValue         int                  `gorm:"not null;default:0" json:"monthly_value"`

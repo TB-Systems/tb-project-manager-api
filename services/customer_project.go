@@ -73,6 +73,14 @@ func (c customerProject) Create(ctx context.Context, request dto.CustomerProject
 		return dto.CustomerProjectResponse{}, customerProjectConflictError("CUSTOMER_PROJECT_ALREADY_EXISTS")
 	}
 
+	projectLinked, err := c.repository.ProjectLinkedExists(ctx, customerProject.ProjectID, nil)
+	if err != nil {
+		return dto.CustomerProjectResponse{}, internalCustomerProjectError("CHECK_CUSTOMER_PROJECT_PROJECT_LINK_FAILED")
+	}
+	if projectLinked {
+		return dto.CustomerProjectResponse{}, customerProjectConflictError("CUSTOMER_PROJECT_PROJECT_ALREADY_LINKED")
+	}
+
 	createdCustomerProject, err := c.repository.Create(ctx, customerProject)
 	if err != nil {
 		return dto.CustomerProjectResponse{}, internalCustomerProjectError("CREATE_CUSTOMER_PROJECT_FAILED")
@@ -100,6 +108,14 @@ func (c customerProject) Update(ctx context.Context, id string, request dto.Cust
 	}
 	if exists {
 		return dto.CustomerProjectResponse{}, customerProjectConflictError("CUSTOMER_PROJECT_ALREADY_EXISTS")
+	}
+
+	projectLinked, err := c.repository.ProjectLinkedExists(ctx, customerProject.ProjectID, &customerProjectID)
+	if err != nil {
+		return dto.CustomerProjectResponse{}, internalCustomerProjectError("CHECK_CUSTOMER_PROJECT_PROJECT_LINK_FAILED")
+	}
+	if projectLinked {
+		return dto.CustomerProjectResponse{}, customerProjectConflictError("CUSTOMER_PROJECT_PROJECT_ALREADY_LINKED")
 	}
 
 	updatedCustomerProject, err := c.repository.Update(ctx, customerProject)

@@ -51,6 +51,26 @@ func TestProjectHandlers(t *testing.T) {
 		}
 	})
 
+	t.Run("overview returns paginated dashboard projects", func(t *testing.T) {
+		router := gin.New()
+		handler := NewProjectHandler(&fakeProjectService{})
+		router.GET("/dashboard", handler.Overview())
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/dashboard", nil)
+
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("Expected status %d, got %d", http.StatusOK, w.Code)
+		}
+		if !strings.Contains(w.Body.String(), `"customer"`) {
+			t.Fatalf("Expected overview response with customer field, got %q", w.Body.String())
+		}
+		if !strings.Contains(w.Body.String(), `"services"`) {
+			t.Fatalf("Expected overview response with services field, got %q", w.Body.String())
+		}
+	})
+
 	t.Run("create decodes and returns created project", func(t *testing.T) {
 		router := gin.New()
 		handler := NewProjectHandler(&fakeProjectService{})
@@ -94,6 +114,20 @@ func (f *fakeProjectService) List(context.Context, commonsmodels.PaginatedParams
 		Items:     []dto.ProjectResponse{{Name: "TB Manager", Slug: "tb-manager"}},
 		PageCount: 3,
 		Page:      2,
+	}, nil
+}
+
+func (f *fakeProjectService) Overview(context.Context) (commonsmodels.ResponseList[dto.ProjectOverviewResponse], commonsErrors.ApiError) {
+	return commonsmodels.ResponseList[dto.ProjectOverviewResponse]{
+		Items: []dto.ProjectOverviewResponse{
+			{
+				Name:     "TB Manager",
+				Slug:     "tb-manager",
+				Customer: nil,
+				Services: []dto.ProjectOverviewServiceResponse{{Name: "API"}},
+			},
+		},
+		Total: 1,
 	}, nil
 }
 

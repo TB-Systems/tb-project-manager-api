@@ -94,6 +94,16 @@
           "response": []
         },
         {
+          "name": "Session",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}{{apiPrefix}}/auth/session",
+            "description": "Retorna a sessao autenticada atual usando o cookie de sessao. Retorna 401 quando nao ha sessao valida."
+          },
+          "response": []
+        },
+        {
           "name": "Logout",
           "event": [
             {
@@ -114,6 +124,21 @@
             "method": "POST",
             "header": [],
             "url": "{{baseUrl}}{{apiPrefix}}/auth/logout"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}{{apiPrefix}}/dashboard",
+            "description": "Lista todos os projetos para o dashboard usando raiz `items` e `total`, com cliente opcional em `customer` e project services em `services`."
           },
           "response": []
         }

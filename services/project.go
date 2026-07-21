@@ -18,6 +18,7 @@ import (
 
 type Project interface {
 	List(ctx context.Context, params commonsmodels.PaginatedParams) (commonsmodels.PaginatedResponse[dto.ProjectResponse], errors.ApiError)
+	Overview(ctx context.Context) (commonsmodels.ResponseList[dto.ProjectOverviewResponse], errors.ApiError)
 	FindByID(ctx context.Context, id string) (dto.ProjectResponse, errors.ApiError)
 	Create(ctx context.Context, request dto.ProjectRequest) (dto.ProjectResponse, errors.ApiError)
 	Update(ctx context.Context, id string, request dto.ProjectRequest) (dto.ProjectResponse, errors.ApiError)
@@ -47,6 +48,23 @@ func (p project) List(ctx context.Context, params commonsmodels.PaginatedParams)
 		Items:     items,
 		PageCount: pageCount(total, params.Limit),
 		Page:      int64(params.Page),
+	}, nil
+}
+
+func (p project) Overview(ctx context.Context) (commonsmodels.ResponseList[dto.ProjectOverviewResponse], errors.ApiError) {
+	projects, err := p.repository.Overview(ctx)
+	if err != nil {
+		return commonsmodels.ResponseList[dto.ProjectOverviewResponse]{}, internalProjectError("LIST_PROJECTS_OVERVIEW_FAILED")
+	}
+
+	items := make([]dto.ProjectOverviewResponse, 0, len(projects))
+	for _, project := range projects {
+		items = append(items, dto.ProjectOverviewResponseFromModel(project))
+	}
+
+	return commonsmodels.ResponseList[dto.ProjectOverviewResponse]{
+		Items: items,
+		Total: len(items),
 	}, nil
 }
 

@@ -43,6 +43,18 @@ func (h *Project) List() gin.HandlerFunc {
 	}
 }
 
+func (h *Project) Overview() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		data, apiErr := h.service.Overview(c.Request.Context())
+		if apiErr != nil {
+			utils.SendErrorResponse(c, apiErr)
+			return
+		}
+
+		utils.SendResponse(c, data, http.StatusOK)
+	}
+}
+
 func (h *Project) FindByID() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		data, apiErr := h.service.FindByID(c.Request.Context(), c.Param("id"))

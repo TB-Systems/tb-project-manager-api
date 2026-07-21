@@ -66,14 +66,16 @@ func (s ProjectStatus) IsValid() bool {
 }
 
 type Project struct {
-	ID          uuid.UUID     `gorm:"type:uuid;primaryKey" json:"id"`
-	Name        string        `gorm:"size:100;not null" json:"name"`
-	Description string        `gorm:"size:500" json:"description"`
-	Slug        string        `gorm:"size:50;uniqueIndex;not null" json:"slug"`
-	RepoURL     string        `gorm:"column:repo_url;size:500" json:"repo_url"`
-	Status      ProjectStatus `gorm:"not null;check:status IN (1,2,3,4,5,6,7,8)" json:"status"`
-	CreatedAt   time.Time     `json:"created_at"`
-	UpdatedAt   time.Time     `json:"updated_at"`
+	ID               uuid.UUID         `gorm:"type:uuid;primaryKey" json:"id"`
+	Name             string            `gorm:"size:100;not null" json:"name"`
+	Description      string            `gorm:"size:500" json:"description"`
+	Slug             string            `gorm:"size:50;uniqueIndex;not null" json:"slug"`
+	RepoURL          string            `gorm:"column:repo_url;size:500" json:"repo_url"`
+	Status           ProjectStatus     `gorm:"not null;check:status IN (1,2,3,4,5,6,7,8)" json:"status"`
+	CreatedAt        time.Time         `json:"created_at"`
+	UpdatedAt        time.Time         `json:"updated_at"`
+	CustomerProjects []CustomerProject `gorm:"foreignKey:ProjectID" json:"-"`
+	Services         []ProjectService  `gorm:"foreignKey:ProjectID" json:"-"`
 }
 
 func (p *Project) BeforeCreate(*gorm.DB) error {

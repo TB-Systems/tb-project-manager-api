@@ -11,6 +11,7 @@ import (
 
 type Project interface {
 	List(ctx context.Context, params commonsmodels.PaginatedParams) ([]models.Project, int64, error)
+	Overview(ctx context.Context) ([]models.Project, error)
 	FindByID(ctx context.Context, id uuid.UUID) (models.Project, error)
 	Create(ctx context.Context, project models.Project) (models.Project, error)
 	Update(ctx context.Context, project models.Project) (models.Project, error)
@@ -46,6 +47,28 @@ func (p project) List(ctx context.Context, params commonsmodels.PaginatedParams)
 	}
 
 	return projects, total, nil
+}
+
+func (p project) Overview(ctx context.Context) ([]models.Project, error) {
+	var projects []models.Project
+
+	query := p.db.WithContext(ctx).Model(&models.Project{})
+	err := query.
+		Preload("CustomerProjects", func(db *gorm.DB) *gorm.DB {
+			return db.Order("created_at ASC")
+		}).
+		Preload("CustomerProjects.Customer").
+		Preload("Services", func(db *gorm.DB) *gorm.DB {
+			return db.Order("name ASC")
+		}).
+		Order("updated_at DESC").
+		Find(&projects).
+		Error
+	if err != nil {
+		return nil, err
+	}
+
+	return projects, nil
 }
 
 func (p project) FindByID(ctx context.Context, id uuid.UUID) (models.Project, error) {

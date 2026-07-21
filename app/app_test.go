@@ -58,6 +58,7 @@ func TestRegisterRoutes(t *testing.T) {
 	routes := router.Routes()
 	expectedRoutes := map[string]bool{
 		"GET /api/v1/healthcheck":              false,
+		"GET /api/v1/dashboard":                false,
 		"GET /api/v1/projects":                 false,
 		"GET /api/v1/projects/:id":             false,
 		"POST /api/v1/projects":                false,

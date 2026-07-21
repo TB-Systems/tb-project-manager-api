@@ -110,6 +110,67 @@ func TestProjectServiceList(t *testing.T) {
 	}
 }
 
+func TestProjectServiceOverview(t *testing.T) {
+	customerID := uuid.New()
+	repository := &fakeProjectRepository{
+		projects: []models.Project{
+			{
+				Name:   "Project with customer",
+				Slug:   "project-with-customer",
+				Status: models.ProjectStatusDeveloping,
+				CustomerProjects: []models.CustomerProject{
+					{
+						ProjectValue:         10000,
+						MonthlyValue:         1500,
+						DueDay:               10,
+						ProjectPaymentStatus: models.ProjectPaymentStatusFirstHalfPaid,
+						Customer: models.Customer{
+							ID:     customerID,
+							Name:   "ACME",
+							Slug:   "acme",
+							Status: models.CustomerStatusActive,
+						},
+					},
+				},
+				Services: []models.ProjectService{
+					{Name: "API", Type: models.ProjectTypeBackend, Status: models.ProjectStatusDeveloping},
+				},
+			},
+			{
+				Name:   "Project without customer",
+				Slug:   "project-without-customer",
+				Status: models.ProjectStatusBacklog,
+			},
+		},
+		total: 2,
+	}
+	service := NewProjectService(repository)
+
+	response, apiErr := service.Overview(context.Background())
+
+	if apiErr != nil {
+		t.Fatalf("Expected project overview, got status %d", apiErr.GetStatus())
+	}
+	if len(response.Items) != 2 {
+		t.Fatalf("Expected 2 projects, got %d", len(response.Items))
+	}
+	if response.Items[0].Customer == nil {
+		t.Fatal("Expected first project customer")
+	}
+	if response.Items[0].Customer.ID != customerID {
+		t.Fatalf("Expected customer ID %s, got %s", customerID, response.Items[0].Customer.ID)
+	}
+	if len(response.Items[0].Services) != 1 {
+		t.Fatalf("Expected one service, got %d", len(response.Items[0].Services))
+	}
+	if response.Items[1].Customer != nil {
+		t.Fatal("Expected second project without customer")
+	}
+	if response.Total != 2 {
+		t.Fatalf("Expected total 2, got %d", response.Total)
+	}
+}
+
 func TestProjectServiceUpdateAndDelete(t *testing.T) {
 	t.Run("updates existing project", func(t *testing.T) {
 		id := uuid.New()
@@ -160,6 +221,10 @@ type fakeProjectRepository struct {
 
 func (f *fakeProjectRepository) List(context.Context, commonsmodels.PaginatedParams) ([]models.Project, int64, error) {
 	return f.projects, f.total, nil
+}
+
+func (f *fakeProjectRepository) Overview(context.Context) ([]models.Project, error) {
+	return f.projects, nil
 }
 
 func (f *fakeProjectRepository) FindByID(_ context.Context, id uuid.UUID) (models.Project, error) {

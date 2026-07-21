@@ -29,6 +29,13 @@ func TestProjectRepositoryDryRunQueries(t *testing.T) {
 		}
 	})
 
+	t.Run("overview builds query", func(t *testing.T) {
+		_, err := repository.Overview(ctx)
+		if err != nil {
+			t.Fatalf("Expected dry run overview to succeed, got %v", err)
+		}
+	})
+
 	t.Run("find by id builds query", func(t *testing.T) {
 		_, err := repository.FindByID(ctx, id)
 		if err != nil {

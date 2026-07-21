@@ -16,6 +16,7 @@ type CustomerProject interface {
 	Update(ctx context.Context, customerProject models.CustomerProject) (models.CustomerProject, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	LinkExists(ctx context.Context, projectID uuid.UUID, customerID uuid.UUID, exceptID *uuid.UUID) (bool, error)
+	ProjectLinkedExists(ctx context.Context, projectID uuid.UUID, exceptID *uuid.UUID) (bool, error)
 }
 
 type customerProject struct {
@@ -96,6 +97,23 @@ func (c customerProject) LinkExists(ctx context.Context, projectID uuid.UUID, cu
 	query := c.db.WithContext(ctx).
 		Model(&models.CustomerProject{}).
 		Where("project_id = ? AND customer_id = ?", projectID, customerID)
+	if exceptID != nil {
+		query = query.Where("id <> ?", *exceptID)
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return false, err
+	}
+
+	return total > 0, nil
+}
+
+func (c customerProject) ProjectLinkedExists(ctx context.Context, projectID uuid.UUID, exceptID *uuid.UUID) (bool, error) {
+	var total int64
+
+	query := c.db.WithContext(ctx).
+		Model(&models.CustomerProject{}).
+		Where("project_id = ?", projectID)
 	if exceptID != nil {
 		query = query.Where("id <> ?", *exceptID)
 	}

@@ -39,6 +39,12 @@ func (a *App) RegisterRoutes() {
 		projects.DELETE("/:id", a.ProjectsHandler.Delete())
 	}
 
+	dashboard := api.Group("/dashboard")
+	dashboard.Use(middlewares.AuthRequired(a.AuthService), a.csrfMiddleware())
+	{
+		dashboard.GET("", a.ProjectsHandler.Overview())
+	}
+
 	customers := api.Group("/customers")
 	customers.Use(middlewares.AuthRequired(a.AuthService), a.csrfMiddleware())
 	{
