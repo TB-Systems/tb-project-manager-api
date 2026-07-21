@@ -40,7 +40,6 @@ func TestProjectRepositoryDryRunQueries(t *testing.T) {
 		_, err := repository.Create(ctx, models.Project{
 			Name:   "TB Manager",
 			Slug:   "tb-manager",
-			Type:   models.ProjectTypeBackend,
 			Status: models.ProjectStatusBacklog,
 		})
 		if err != nil {
@@ -53,7 +52,6 @@ func TestProjectRepositoryDryRunQueries(t *testing.T) {
 			ID:     id,
 			Name:   "TB Manager",
 			Slug:   "tb-manager",
-			Type:   models.ProjectTypeFrontend,
 			Status: models.ProjectStatusDeveloping,
 		})
 		if err != nil {

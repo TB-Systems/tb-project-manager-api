@@ -56,7 +56,7 @@ func TestProjectHandlers(t *testing.T) {
 		handler := NewProjectHandler(&fakeProjectService{})
 		router.POST("/projects", handler.Create())
 		w := httptest.NewRecorder()
-		body := `{"name":"TB Manager","slug":"tb-manager","type":1,"status":1}`
+		body := `{"name":"TB Manager","description":"Internal manager","slug":"tb-manager","repo_url":"https://github.com/TB-Systems/tb-manager","status":1}`
 		req := httptest.NewRequest(http.MethodPost, "/projects", strings.NewReader(body))
 
 		router.ServeHTTP(w, req)
@@ -103,19 +103,21 @@ func (f *fakeProjectService) FindByID(context.Context, string) (dto.ProjectRespo
 
 func (f *fakeProjectService) Create(_ context.Context, request dto.ProjectRequest) (dto.ProjectResponse, commonsErrors.ApiError) {
 	return dto.ProjectResponse{
-		Name:   request.Name,
-		Slug:   request.Slug,
-		Type:   models.ProjectTypeBackend,
-		Status: models.ProjectStatusBacklog,
+		Name:        request.Name,
+		Description: request.Description,
+		Slug:        request.Slug,
+		RepoURL:     request.RepoURL,
+		Status:      models.ProjectStatusBacklog,
 	}, nil
 }
 
 func (f *fakeProjectService) Update(_ context.Context, _ string, request dto.ProjectRequest) (dto.ProjectResponse, commonsErrors.ApiError) {
 	return dto.ProjectResponse{
-		Name:   request.Name,
-		Slug:   request.Slug,
-		Type:   request.Type,
-		Status: request.Status,
+		Name:        request.Name,
+		Description: request.Description,
+		Slug:        request.Slug,
+		RepoURL:     request.RepoURL,
+		Status:      request.Status,
 	}, nil
 }
 

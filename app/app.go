@@ -10,12 +10,16 @@ import (
 )
 
 type App struct {
-	Router           *gin.Engine
-	Config           config.Config
-	ProjectsHandler  *handlers.Project
-	CustomersHandler *handlers.Customer
-	AuthHandler      *handlers.Auth
-	AuthService      services.Auth
+	Router                  *gin.Engine
+	Config                  config.Config
+	ProjectsHandler         *handlers.Project
+	CustomersHandler        *handlers.Customer
+	CustomerProjectsHandler *handlers.CustomerProject
+	ProjectServicesHandler  *handlers.ProjectService
+	ServiceChecksHandler    *handlers.ServiceCheck
+	ServiceLogsHandler      *handlers.ServiceLog
+	AuthHandler             *handlers.Auth
+	AuthService             services.Auth
 }
 
 func NewApp(router *gin.Engine, db *gorm.DB, cfg config.Config) *App {
@@ -25,13 +29,25 @@ func NewApp(router *gin.Engine, db *gorm.DB, cfg config.Config) *App {
 	projectService := services.NewProjectService(projectRepository)
 	customerRepository := repositories.NewCustomerRepository(db)
 	customerService := services.NewCustomerService(customerRepository)
+	customerProjectRepository := repositories.NewCustomerProjectRepository(db)
+	customerProjectService := services.NewCustomerProjectService(customerProjectRepository)
+	projectServiceRepository := repositories.NewProjectServiceRepository(db)
+	projectServiceService := services.NewProjectServiceService(projectServiceRepository)
+	serviceCheckRepository := repositories.NewServiceCheckRepository(db)
+	serviceCheckService := services.NewServiceCheckService(serviceCheckRepository)
+	serviceLogRepository := repositories.NewServiceLogRepository(db)
+	serviceLogService := services.NewServiceLogService(serviceLogRepository)
 
 	return &App{
-		Router:           router,
-		Config:           cfg,
-		ProjectsHandler:  handlers.NewProjectHandler(projectService),
-		CustomersHandler: handlers.NewCustomerHandler(customerService),
-		AuthHandler:      handlers.NewAuthHandler(authService),
-		AuthService:      authService,
+		Router:                  router,
+		Config:                  cfg,
+		ProjectsHandler:         handlers.NewProjectHandler(projectService),
+		CustomersHandler:        handlers.NewCustomerHandler(customerService),
+		CustomerProjectsHandler: handlers.NewCustomerProjectHandler(customerProjectService),
+		ProjectServicesHandler:  handlers.NewProjectServiceHandler(projectServiceService),
+		ServiceChecksHandler:    handlers.NewServiceCheckHandler(serviceCheckService),
+		ServiceLogsHandler:      handlers.NewServiceLogHandler(serviceLogService),
+		AuthHandler:             handlers.NewAuthHandler(authService),
+		AuthService:             authService,
 	}
 }

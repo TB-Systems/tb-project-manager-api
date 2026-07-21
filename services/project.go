@@ -137,16 +137,11 @@ func (p project) Delete(ctx context.Context, id string) errors.ApiError {
 
 func projectFromRequest(request dto.ProjectRequest) models.Project {
 	return models.Project{
-		Name:                  strings.TrimSpace(request.Name),
-		Slug:                  strings.TrimSpace(request.Slug),
-		Type:                  request.Type,
-		BaseURL:               strings.TrimSpace(request.BaseURL),
-		RepoURL:               strings.TrimSpace(request.RepoURL),
-		SharedValue:           request.SharedValue,
-		DedicatedValue:        request.DedicatedValue,
-		SupportSharedValue:    request.SupportSharedValue,
-		SupportDedicatedValue: request.SupportDedicatedValue,
-		Status:                request.Status,
+		Name:        strings.TrimSpace(request.Name),
+		Description: strings.TrimSpace(request.Description),
+		Slug:        strings.TrimSpace(request.Slug),
+		RepoURL:     strings.TrimSpace(request.RepoURL),
+		Status:      request.Status,
 	}
 }
 
