@@ -33,7 +33,11 @@ func (h *ProjectService) List() gin.HandlerFunc {
 			Page:   page,
 		}
 
-		data, apiErr := h.service.List(c.Request.Context(), params)
+		filter := dto.ProjectServiceListFilter{
+			ProjectID: c.Query("project_id"),
+		}
+
+		data, apiErr := h.service.List(c.Request.Context(), params, filter)
 		if apiErr != nil {
 			utils.SendErrorResponse(c, apiErr)
 			return
@@ -57,7 +61,7 @@ func (h *ProjectService) FindByID() gin.HandlerFunc {
 
 func (h *ProjectService) Create() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		request, apiErr := utils.DecodeValidJson[dto.ProjectServiceRequest](c)
+		request, apiErr := utils.DecodeValidJson[dto.ProjectServiceCreateRequest](c)
 		if apiErr != nil {
 			utils.SendErrorResponse(c, apiErr)
 			return

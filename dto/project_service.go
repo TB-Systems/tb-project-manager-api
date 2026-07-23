@@ -10,6 +10,19 @@ import (
 	"github.com/google/uuid"
 )
 
+type ProjectServiceListFilter struct {
+	ProjectID string
+}
+
+type ProjectServiceCreateRequest struct {
+	ProjectID      uuid.UUID          `json:"project_id"`
+	Name           string             `json:"name"`
+	Type           models.ProjectType `json:"type"`
+	URL            string             `json:"url"`
+	RepoURL        string             `json:"repo_url"`
+	HealthCheckURL string             `json:"health_check_url"`
+}
+
 type ProjectServiceRequest struct {
 	ProjectID      uuid.UUID            `json:"project_id"`
 	Name           string               `json:"name"`
@@ -34,33 +47,66 @@ type ProjectServiceResponse struct {
 }
 
 func (request ProjectServiceRequest) Validate() []errors.ApiErrorItem {
-	errs := make([]errors.ApiErrorItem, 0)
-
-	if request.ProjectID == uuid.Nil {
-		errs = append(errs, errors.InvalidFieldError("PROJECT_SERVICE_PROJECT_ID_INVALID"))
-	}
-
-	if utils.IsBlank(request.Name) || len(strings.TrimSpace(request.Name)) > 100 {
-		errs = append(errs, errors.InvalidFieldError("PROJECT_SERVICE_NAME_INVALID"))
-	}
-
-	if !request.Type.IsValid() {
-		errs = append(errs, errors.InvalidFieldError("PROJECT_SERVICE_TYPE_INVALID"))
-	}
+	errs := validateProjectServiceFields(projectServiceValidationFields{
+		ProjectID:      request.ProjectID,
+		Name:           request.Name,
+		Type:           request.Type,
+		URL:            request.URL,
+		RepoURL:        request.RepoURL,
+		HealthCheckURL: request.HealthCheckURL,
+	})
 
 	if !request.Status.IsValid() {
 		errs = append(errs, errors.InvalidFieldError("PROJECT_SERVICE_STATUS_INVALID"))
 	}
 
-	if len(strings.TrimSpace(request.URL)) > 500 {
+	return errs
+}
+
+func (request ProjectServiceCreateRequest) Validate() []errors.ApiErrorItem {
+	return validateProjectServiceFields(projectServiceValidationFields{
+		ProjectID:      request.ProjectID,
+		Name:           request.Name,
+		Type:           request.Type,
+		URL:            request.URL,
+		RepoURL:        request.RepoURL,
+		HealthCheckURL: request.HealthCheckURL,
+	})
+}
+
+type projectServiceValidationFields struct {
+	ProjectID      uuid.UUID
+	Name           string
+	Type           models.ProjectType
+	URL            string
+	RepoURL        string
+	HealthCheckURL string
+}
+
+func validateProjectServiceFields(fields projectServiceValidationFields) []errors.ApiErrorItem {
+	errs := make([]errors.ApiErrorItem, 0)
+
+	if fields.ProjectID == uuid.Nil {
+		errs = append(errs, errors.InvalidFieldError("PROJECT_SERVICE_PROJECT_ID_INVALID"))
+	}
+
+	if utils.IsBlank(fields.Name) || len(strings.TrimSpace(fields.Name)) > 100 {
+		errs = append(errs, errors.InvalidFieldError("PROJECT_SERVICE_NAME_INVALID"))
+	}
+
+	if !fields.Type.IsValid() {
+		errs = append(errs, errors.InvalidFieldError("PROJECT_SERVICE_TYPE_INVALID"))
+	}
+
+	if len(strings.TrimSpace(fields.URL)) > 500 {
 		errs = append(errs, errors.InvalidFieldError("PROJECT_SERVICE_URL_INVALID"))
 	}
 
-	if len(strings.TrimSpace(request.RepoURL)) > 500 {
+	if len(strings.TrimSpace(fields.RepoURL)) > 500 {
 		errs = append(errs, errors.InvalidFieldError("PROJECT_SERVICE_REPO_URL_INVALID"))
 	}
 
-	if len(strings.TrimSpace(request.HealthCheckURL)) > 500 {
+	if len(strings.TrimSpace(fields.HealthCheckURL)) > 500 {
 		errs = append(errs, errors.InvalidFieldError("PROJECT_SERVICE_HEALTH_CHECK_URL_INVALID"))
 	}
 

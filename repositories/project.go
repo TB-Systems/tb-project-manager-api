@@ -73,7 +73,12 @@ func (p project) Overview(ctx context.Context) ([]models.Project, error) {
 
 func (p project) FindByID(ctx context.Context, id uuid.UUID) (models.Project, error) {
 	var project models.Project
-	if err := p.db.WithContext(ctx).First(&project, "id = ?", id).Error; err != nil {
+	if err := p.db.WithContext(ctx).
+		Preload("CustomerProjects", func(db *gorm.DB) *gorm.DB {
+			return db.Order("created_at ASC")
+		}).
+		Preload("CustomerProjects.Customer").
+		First(&project, "id = ?", id).Error; err != nil {
 		return models.Project{}, err
 	}
 

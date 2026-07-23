@@ -23,7 +23,6 @@ func TestProjectServiceCreate(t *testing.T) {
 			Description: " Internal manager ",
 			Slug:        " tb-manager ",
 			RepoURL:     " https://github.com/TB-Systems/tb-manager ",
-			Status:      models.ProjectStatusBacklog,
 		})
 
 		if apiErr != nil {
@@ -38,6 +37,9 @@ func TestProjectServiceCreate(t *testing.T) {
 		if repository.createdProject.Description != "Internal manager" {
 			t.Fatalf("Expected trimmed project description, got %q", repository.createdProject.Description)
 		}
+		if repository.createdProject.Status != models.ProjectStatusBacklog {
+			t.Fatalf("Expected created project status Backlog, got %d", repository.createdProject.Status)
+		}
 	})
 
 	t.Run("rejects duplicated slug", func(t *testing.T) {
@@ -45,9 +47,8 @@ func TestProjectServiceCreate(t *testing.T) {
 		service := NewProjectService(repository)
 
 		_, apiErr := service.Create(context.Background(), dto.ProjectRequest{
-			Name:   "TB Manager",
-			Slug:   "tb-manager",
-			Status: models.ProjectStatusBacklog,
+			Name: "TB Manager",
+			Slug: "tb-manager",
 		})
 
 		if apiErr == nil {
@@ -83,6 +84,49 @@ func TestProjectServiceFindByID(t *testing.T) {
 		}
 		if apiErr.GetStatus() != http.StatusNotFound {
 			t.Fatalf("Expected status %d, got %d", http.StatusNotFound, apiErr.GetStatus())
+		}
+	})
+
+	t.Run("returns customer project relation when project has customer", func(t *testing.T) {
+		customerProjectID := uuid.New()
+		customerID := uuid.New()
+		projectID := uuid.New()
+		service := NewProjectService(&fakeProjectRepository{
+			project: models.Project{
+				ID: projectID,
+				CustomerProjects: []models.CustomerProject{
+					{
+						ID:                   customerProjectID,
+						ProjectID:            projectID,
+						CustomerID:           customerID,
+						ProjectValue:         250000,
+						MonthlyValue:         15000,
+						DueDay:               10,
+						ProjectPaymentStatus: models.ProjectPaymentStatusFirstHalfPending,
+						Customer: models.Customer{
+							ID:     customerID,
+							Name:   "TiB",
+							Slug:   "tib",
+							Status: models.CustomerStatusActive,
+						},
+					},
+				},
+			},
+		})
+
+		response, apiErr := service.FindByID(context.Background(), projectID.String())
+
+		if apiErr != nil {
+			t.Fatalf("Expected project detail, got status %d", apiErr.GetStatus())
+		}
+		if response.CustomerProject == nil {
+			t.Fatal("Expected customer project relation")
+		}
+		if response.CustomerProject.ID != customerProjectID {
+			t.Fatalf("Expected customer project ID %s, got %s", customerProjectID, response.CustomerProject.ID)
+		}
+		if response.CustomerProject.Customer.ID != customerID {
+			t.Fatalf("Expected nested customer ID %s, got %s", customerID, response.CustomerProject.Customer.ID)
 		}
 	})
 }
@@ -174,20 +218,19 @@ func TestProjectServiceOverview(t *testing.T) {
 func TestProjectServiceUpdateAndDelete(t *testing.T) {
 	t.Run("updates existing project", func(t *testing.T) {
 		id := uuid.New()
-		repository := &fakeProjectRepository{project: models.Project{ID: id}}
+		repository := &fakeProjectRepository{project: models.Project{ID: id, Status: models.ProjectStatusStaging}}
 		service := NewProjectService(repository)
 
 		response, apiErr := service.Update(context.Background(), id.String(), dto.ProjectRequest{
-			Name:   "TB Manager",
-			Slug:   "tb-manager",
-			Status: models.ProjectStatusDeveloping,
+			Name: "TB Manager",
+			Slug: "tb-manager",
 		})
 
 		if apiErr != nil {
 			t.Fatalf("Expected project update, got status %d", apiErr.GetStatus())
 		}
-		if response.Status != models.ProjectStatusDeveloping {
-			t.Fatalf("Expected updated project status, got %d", response.Status)
+		if response.Status != models.ProjectStatusStaging {
+			t.Fatalf("Expected existing project status to be preserved, got %d", response.Status)
 		}
 	})
 

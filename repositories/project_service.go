@@ -10,11 +10,15 @@ import (
 )
 
 type ProjectService interface {
-	List(ctx context.Context, params commonsmodels.PaginatedParams) ([]models.ProjectService, int64, error)
+	List(ctx context.Context, params commonsmodels.PaginatedParams, filter ProjectServiceFilter) ([]models.ProjectService, int64, error)
 	FindByID(ctx context.Context, id uuid.UUID) (models.ProjectService, error)
 	Create(ctx context.Context, projectService models.ProjectService) (models.ProjectService, error)
 	Update(ctx context.Context, projectService models.ProjectService) (models.ProjectService, error)
 	Delete(ctx context.Context, id uuid.UUID) error
+}
+
+type ProjectServiceFilter struct {
+	ProjectID *uuid.UUID
 }
 
 type projectService struct {
@@ -25,11 +29,15 @@ func NewProjectServiceRepository(db *gorm.DB) ProjectService {
 	return projectService{db: db}
 }
 
-func (p projectService) List(ctx context.Context, params commonsmodels.PaginatedParams) ([]models.ProjectService, int64, error) {
+func (p projectService) List(ctx context.Context, params commonsmodels.PaginatedParams, filter ProjectServiceFilter) ([]models.ProjectService, int64, error) {
 	var projectServices []models.ProjectService
 	var total int64
 
 	query := p.db.WithContext(ctx).Model(&models.ProjectService{})
+	if filter.ProjectID != nil {
+		query = query.Where("project_id = ?", *filter.ProjectID)
+	}
+
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}

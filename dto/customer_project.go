@@ -9,13 +9,11 @@ import (
 )
 
 type CustomerProjectRequest struct {
-	ProjectID            uuid.UUID                   `json:"project_id"`
-	CustomerID           uuid.UUID                   `json:"customer_id"`
-	ProjectValue         int                         `json:"project_value"`
-	MonthlyValue         int                         `json:"monthly_value"`
-	DueDay               int                         `json:"due_day"`
-	ProjectPaymentStatus models.ProjectPaymentStatus `json:"project_payment_status"`
-	LastPayment          *time.Time                  `json:"last_payment"`
+	ProjectID    uuid.UUID `json:"project_id"`
+	CustomerID   uuid.UUID `json:"customer_id"`
+	ProjectValue int       `json:"project_value"`
+	MonthlyValue int       `json:"monthly_value"`
+	DueDay       int       `json:"due_day"`
 }
 
 type CustomerProjectResponse struct {
@@ -48,10 +46,6 @@ func (request CustomerProjectRequest) Validate() []errors.ApiErrorItem {
 
 	if request.DueDay < 1 || request.DueDay > 31 {
 		errs = append(errs, errors.InvalidFieldError("CUSTOMER_PROJECT_DUE_DAY_INVALID"))
-	}
-
-	if !request.ProjectPaymentStatus.IsValid() {
-		errs = append(errs, errors.InvalidFieldError("CUSTOMER_PROJECT_PAYMENT_STATUS_INVALID"))
 	}
 
 	return errs

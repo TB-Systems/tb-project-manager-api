@@ -84,6 +84,7 @@ func (p project) FindByID(ctx context.Context, id string) (dto.ProjectResponse, 
 
 func (p project) Create(ctx context.Context, request dto.ProjectRequest) (dto.ProjectResponse, errors.ApiError) {
 	project := projectFromRequest(request)
+	project.Status = models.ProjectStatusBacklog
 
 	exists, err := p.repository.SlugExists(ctx, project.Slug, nil)
 	if err != nil {
@@ -110,12 +111,14 @@ func (p project) Update(ctx context.Context, id string, request dto.ProjectReque
 		return dto.ProjectResponse{}, apiErr
 	}
 
-	if _, err := p.repository.FindByID(ctx, projectID); err != nil {
+	currentProject, err := p.repository.FindByID(ctx, projectID)
+	if err != nil {
 		return dto.ProjectResponse{}, projectRepositoryError(err, "FIND_PROJECT_FAILED")
 	}
 
 	project := projectFromRequest(request)
 	project.ID = projectID
+	project.Status = currentProject.Status
 
 	exists, err := p.repository.SlugExists(ctx, project.Slug, &projectID)
 	if err != nil {
@@ -159,7 +162,6 @@ func projectFromRequest(request dto.ProjectRequest) models.Project {
 		Description: strings.TrimSpace(request.Description),
 		Slug:        strings.TrimSpace(request.Slug),
 		RepoURL:     strings.TrimSpace(request.RepoURL),
-		Status:      request.Status,
 	}
 }
 

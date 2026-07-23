@@ -282,10 +282,10 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Project Manager\",\n  \"description\": \"Sistema interno para acompanhar clientes, projetos e servicos no ar.\",\n  \"slug\": \"project-manager\",\n  \"repo_url\": \"https://github.com/TB-Systems/tb-project-manager-api\",\n  \"status\": 2\n}"
+              "raw": "{\n  \"name\": \"Project Manager\",\n  \"description\": \"Sistema interno para acompanhar clientes, projetos e servicos no ar.\",\n  \"slug\": \"project-manager\",\n  \"repo_url\": \"https://github.com/TB-Systems/tb-project-manager-api\"\n}"
             },
             "url": "{{baseUrl}}{{apiPrefix}}/projects",
-            "description": "Status: 1=Backlog, 2=Discovery, 3=Developing, 4=Staging, 5=Live, 6=Paused, 7=Down, 8=Archived."
+            "description": "Cria o projeto com status inicial 1=Backlog automaticamente."
           },
           "response": []
         },
@@ -301,7 +301,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Project Manager Atualizado\",\n  \"description\": \"Sistema interno para acompanhar operacao e monitoramento.\",\n  \"slug\": \"project-manager\",\n  \"repo_url\": \"https://github.com/TB-Systems/tb-project-manager-api\",\n  \"status\": 3\n}"
+              "raw": "{\n  \"name\": \"Project Manager Atualizado\",\n  \"description\": \"Sistema interno para acompanhar operacao e monitoramento.\",\n  \"slug\": \"project-manager\",\n  \"repo_url\": \"https://github.com/TB-Systems/tb-project-manager-api\"\n}"
             },
             "url": "{{baseUrl}}{{apiPrefix}}/projects/{{projectId}}"
           },
@@ -370,10 +370,10 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"project_id\": \"{{projectId}}\",\n  \"customer_id\": \"{{customerId}}\",\n  \"project_value\": 250000,\n  \"monthly_value\": 15000,\n  \"due_day\": 10,\n  \"project_payment_status\": 1,\n  \"last_payment\": null\n}"
+              "raw": "{\n  \"project_id\": \"{{projectId}}\",\n  \"customer_id\": \"{{customerId}}\",\n  \"project_value\": 250000,\n  \"monthly_value\": 15000,\n  \"due_day\": 10\n}"
             },
             "url": "{{baseUrl}}{{apiPrefix}}/customer-projects",
-            "description": "Payment status: 1=FirstHalfPending, 2=FirstHalfPaid, 3=SecondHalfPending, 4=SecondHalfPaid."
+            "description": "Cria com payment status inicial 1=FirstHalfPending automaticamente. Ao vincular cliente, o projeto passa a ter status calculado pela regra de status."
           },
           "response": []
         },
@@ -389,7 +389,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"project_id\": \"{{projectId}}\",\n  \"customer_id\": \"{{customerId}}\",\n  \"project_value\": 300000,\n  \"monthly_value\": 18000,\n  \"due_day\": 15,\n  \"project_payment_status\": 2,\n  \"last_payment\": null\n}"
+              "raw": "{\n  \"project_id\": \"{{projectId}}\",\n  \"customer_id\": \"{{customerId}}\",\n  \"project_value\": 300000,\n  \"monthly_value\": 18000,\n  \"due_day\": 15\n}"
             },
             "url": "{{baseUrl}}{{apiPrefix}}/customer-projects/{{customerProjectId}}",
             "description": "Atualiza os dados comerciais do vinculo cliente/projeto."
@@ -415,8 +415,8 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{baseUrl}}{{apiPrefix}}/project-services?page={{page}}&limit={{limit}}",
-            "description": "Lista os servicos monitoraveis dos projetos."
+            "url": "{{baseUrl}}{{apiPrefix}}/project-services?page={{page}}&limit={{limit}}&project_id={{projectId}}",
+            "description": "Lista os servicos monitoraveis dos projetos. Use `project_id` para filtrar os servicos vinculados a um projeto."
           },
           "response": []
         },
@@ -459,10 +459,10 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"project_id\": \"{{projectId}}\",\n  \"name\": \"Project Manager API\",\n  \"type\": 1,\n  \"url\": \"http://localhost:8080\",\n  \"repo_url\": \"https://github.com/TB-Systems/tb-project-manager-api\",\n  \"status\": 5,\n  \"health_check_url\": \"http://localhost:8080/health\"\n}"
+              "raw": "{\n  \"project_id\": \"{{projectId}}\",\n  \"name\": \"Project Manager API\",\n  \"type\": 1,\n  \"url\": \"http://localhost:8080\",\n  \"repo_url\": \"https://github.com/TB-Systems/tb-project-manager-api\",\n  \"health_check_url\": \"http://localhost:8080/health\"\n}"
             },
             "url": "{{baseUrl}}{{apiPrefix}}/project-services",
-            "description": "Type: 1=Backend, 2=Frontend, 3=Android, 4=iOS, 5=Desktop, 6=Automation, 7=Database, 8=Other."
+            "description": "Type: 1=Backend, 2=Frontend, 3=Android, 4=iOS, 5=Desktop, 6=Automation, 7=Database, 8=Other. Cria com status inicial 1=Backlog automaticamente."
           },
           "response": []
         },

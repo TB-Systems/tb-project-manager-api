@@ -14,6 +14,8 @@ const (
 	ProjectPaymentStatusFirstHalfPaid     ProjectPaymentStatus = 2
 	ProjectPaymentStatusSecondHalfPending ProjectPaymentStatus = 3
 	ProjectPaymentStatusSecondHalfPaid    ProjectPaymentStatus = 4
+	PaymentOnDay                          ProjectPaymentStatus = 5
+	PaymentPeding                         ProjectPaymentStatus = 6
 )
 
 func (s ProjectPaymentStatus) IsValid() bool {
