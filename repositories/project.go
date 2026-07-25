@@ -58,6 +58,12 @@ func (p project) Overview(ctx context.Context) ([]models.Project, error) {
 			return db.Order("created_at ASC")
 		}).
 		Preload("CustomerProjects.Customer").
+		Preload("CustomerProjects.Terms", func(db *gorm.DB) *gorm.DB {
+			return db.Order("active DESC, starts_at DESC")
+		}).
+		Preload("CustomerProjects.Invoices", func(db *gorm.DB) *gorm.DB {
+			return db.Order("due_date ASC, created_at ASC")
+		}).
 		Preload("Services", func(db *gorm.DB) *gorm.DB {
 			return db.Order("name ASC")
 		}).
@@ -78,6 +84,12 @@ func (p project) FindByID(ctx context.Context, id uuid.UUID) (models.Project, er
 			return db.Order("created_at ASC")
 		}).
 		Preload("CustomerProjects.Customer").
+		Preload("CustomerProjects.Terms", func(db *gorm.DB) *gorm.DB {
+			return db.Order("active DESC, starts_at DESC")
+		}).
+		Preload("CustomerProjects.Invoices", func(db *gorm.DB) *gorm.DB {
+			return db.Order("due_date ASC, created_at ASC")
+		}).
 		First(&project, "id = ?", id).Error; err != nil {
 		return models.Project{}, err
 	}

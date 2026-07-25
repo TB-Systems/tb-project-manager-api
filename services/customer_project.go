@@ -4,6 +4,7 @@ import (
 	"context"
 	stderrors "errors"
 	"net/http"
+	"time"
 
 	"github.com/TB-Systems/go-commons/commonsmodels"
 	"github.com/TB-Systems/go-commons/errors"
@@ -23,15 +24,31 @@ type CustomerProject interface {
 }
 
 type customerProject struct {
-	repository repositories.CustomerProject
-	statusSync ProjectStatusSync
+	repository     repositories.CustomerProject
+	statusSync     ProjectStatusSync
+	billingSync    CustomerProjectBillingSync
+	customerStatus CustomerStatusSync
 }
 
-func NewCustomerProjectService(repository repositories.CustomerProject, statusSync ProjectStatusSync) CustomerProject {
-	return customerProject{repository: repository, statusSync: statusSync}
+func NewCustomerProjectService(repository repositories.CustomerProject, statusSync ProjectStatusSync, syncs ...interface{}) CustomerProject {
+	service := customerProject{repository: repository, statusSync: statusSync}
+	for _, sync := range syncs {
+		switch typedSync := sync.(type) {
+		case CustomerProjectBillingSync:
+			service.billingSync = typedSync
+		case CustomerStatusSync:
+			service.customerStatus = typedSync
+		}
+	}
+
+	return service
 }
 
 func (c customerProject) List(ctx context.Context, params commonsmodels.PaginatedParams) (commonsmodels.PaginatedResponse[dto.CustomerProjectResponse], errors.ApiError) {
+	if apiErr := c.syncBilling(ctx); apiErr != nil {
+		return commonsmodels.PaginatedResponse[dto.CustomerProjectResponse]{}, apiErr
+	}
+
 	customerProjects, total, err := c.repository.List(ctx, params)
 	if err != nil {
 		return commonsmodels.PaginatedResponse[dto.CustomerProjectResponse]{}, internalCustomerProjectError("LIST_CUSTOMER_PROJECTS_FAILED")
@@ -55,6 +72,10 @@ func (c customerProject) FindByID(ctx context.Context, id string) (dto.CustomerP
 		return dto.CustomerProjectResponse{}, apiErr
 	}
 
+	if apiErr := c.syncBilling(ctx); apiErr != nil {
+		return dto.CustomerProjectResponse{}, apiErr
+	}
+
 	customerProject, err := c.repository.FindByID(ctx, customerProjectID)
 	if err != nil {
 		return dto.CustomerProjectResponse{}, customerProjectRepositoryError(err, "FIND_CUSTOMER_PROJECT_FAILED")
@@ -74,20 +95,16 @@ func (c customerProject) Create(ctx context.Context, request dto.CustomerProject
 		return dto.CustomerProjectResponse{}, customerProjectConflictError("CUSTOMER_PROJECT_ALREADY_EXISTS")
 	}
 
-	projectLinked, err := c.repository.ProjectLinkedExists(ctx, customerProject.ProjectID, nil)
-	if err != nil {
-		return dto.CustomerProjectResponse{}, internalCustomerProjectError("CHECK_CUSTOMER_PROJECT_PROJECT_LINK_FAILED")
-	}
-	if projectLinked {
-		return dto.CustomerProjectResponse{}, customerProjectConflictError("CUSTOMER_PROJECT_PROJECT_ALREADY_LINKED")
-	}
-
 	createdCustomerProject, err := c.repository.Create(ctx, customerProject)
 	if err != nil {
 		return dto.CustomerProjectResponse{}, internalCustomerProjectError("CREATE_CUSTOMER_PROJECT_FAILED")
 	}
 
 	if apiErr := c.statusSync.Sync(ctx, customerProject.ProjectID); apiErr != nil {
+		return dto.CustomerProjectResponse{}, apiErr
+	}
+
+	if apiErr := c.syncCustomerStatus(ctx, customerProject.CustomerID); apiErr != nil {
 		return dto.CustomerProjectResponse{}, apiErr
 	}
 
@@ -107,8 +124,9 @@ func (c customerProject) Update(ctx context.Context, id string, request dto.Cust
 
 	customerProject := customerProjectFromRequest(request)
 	customerProject.ID = customerProjectID
-	customerProject.ProjectPaymentStatus = currentCustomerProject.ProjectPaymentStatus
-	customerProject.LastPayment = currentCustomerProject.LastPayment
+	customerProject.Status = currentCustomerProject.Status
+	customerProject.StartedAt = currentCustomerProject.StartedAt
+	customerProject.ClosedAt = currentCustomerProject.ClosedAt
 
 	exists, err := c.repository.LinkExists(ctx, customerProject.ProjectID, customerProject.CustomerID, &customerProjectID)
 	if err != nil {
@@ -116,14 +134,6 @@ func (c customerProject) Update(ctx context.Context, id string, request dto.Cust
 	}
 	if exists {
 		return dto.CustomerProjectResponse{}, customerProjectConflictError("CUSTOMER_PROJECT_ALREADY_EXISTS")
-	}
-
-	projectLinked, err := c.repository.ProjectLinkedExists(ctx, customerProject.ProjectID, &customerProjectID)
-	if err != nil {
-		return dto.CustomerProjectResponse{}, internalCustomerProjectError("CHECK_CUSTOMER_PROJECT_PROJECT_LINK_FAILED")
-	}
-	if projectLinked {
-		return dto.CustomerProjectResponse{}, customerProjectConflictError("CUSTOMER_PROJECT_PROJECT_ALREADY_LINKED")
 	}
 
 	updatedCustomerProject, err := c.repository.Update(ctx, customerProject)
@@ -137,6 +147,16 @@ func (c customerProject) Update(ctx context.Context, id string, request dto.Cust
 
 	if currentCustomerProject.ProjectID != customerProject.ProjectID {
 		if apiErr := c.statusSync.Sync(ctx, customerProject.ProjectID); apiErr != nil {
+			return dto.CustomerProjectResponse{}, apiErr
+		}
+	}
+
+	if apiErr := c.syncCustomerStatus(ctx, currentCustomerProject.CustomerID); apiErr != nil {
+		return dto.CustomerProjectResponse{}, apiErr
+	}
+
+	if currentCustomerProject.CustomerID != customerProject.CustomerID {
+		if apiErr := c.syncCustomerStatus(ctx, customerProject.CustomerID); apiErr != nil {
 			return dto.CustomerProjectResponse{}, apiErr
 		}
 	}
@@ -163,18 +183,81 @@ func (c customerProject) Delete(ctx context.Context, id string) errors.ApiError 
 		return apiErr
 	}
 
+	if apiErr := c.syncCustomerStatus(ctx, customerProject.CustomerID); apiErr != nil {
+		return apiErr
+	}
+
 	return nil
 }
 
-func customerProjectFromRequest(request dto.CustomerProjectRequest) models.CustomerProject {
-	return models.CustomerProject{
-		ProjectID:            request.ProjectID,
-		CustomerID:           request.CustomerID,
-		ProjectValue:         request.ProjectValue,
-		MonthlyValue:         request.MonthlyValue,
-		DueDay:               request.DueDay,
-		ProjectPaymentStatus: models.ProjectPaymentStatusFirstHalfPending,
+func (c customerProject) syncBilling(ctx context.Context) errors.ApiError {
+	if c.billingSync == nil {
+		return nil
 	}
+
+	return c.billingSync.SyncOverdue(ctx)
+}
+
+func (c customerProject) syncCustomerStatus(ctx context.Context, customerID uuid.UUID) errors.ApiError {
+	if c.customerStatus == nil {
+		return nil
+	}
+
+	return c.customerStatus.Sync(ctx, customerID)
+}
+
+func customerProjectFromRequest(request dto.CustomerProjectRequest) models.CustomerProject {
+	now := time.Now().UTC()
+	setupFirstHalf, setupSecondHalf := splitSetupValue(request.ProjectValue)
+
+	return models.CustomerProject{
+		ProjectID:  request.ProjectID,
+		CustomerID: request.CustomerID,
+		Status:     models.CustomerProjectStatusActive,
+		StartedAt:  now,
+		Terms: []models.CustomerProjectTerm{
+			{
+				SetupValue:   request.ProjectValue,
+				MonthlyValue: request.MonthlyValue,
+				DueDay:       request.DueDay,
+				StartsAt:     now,
+				Active:       true,
+			},
+		},
+		Invoices: setupInvoices(setupFirstHalf, setupSecondHalf, now),
+	}
+}
+
+func splitSetupValue(value int) (int, int) {
+	firstHalf := (value + 1) / 2
+	return firstHalf, value - firstHalf
+}
+
+func setupInvoices(firstHalf int, secondHalf int, now time.Time) []models.CustomerProjectInvoice {
+	invoices := make([]models.CustomerProjectInvoice, 0, 2)
+	if firstHalf > 0 {
+		invoices = append(invoices, models.CustomerProjectInvoice{
+			Type:    models.CustomerProjectInvoiceTypeSetupFirstHalf,
+			Amount:  firstHalf,
+			DueDate: beginningOfDay(now),
+			Status:  models.CustomerProjectInvoiceStatusOpen,
+		})
+	}
+
+	if secondHalf > 0 {
+		invoices = append(invoices, models.CustomerProjectInvoice{
+			Type:    models.CustomerProjectInvoiceTypeSetupSecondHalf,
+			Amount:  secondHalf,
+			DueDate: beginningOfDay(now),
+			Status:  models.CustomerProjectInvoiceStatusOpen,
+		})
+	}
+
+	return invoices
+}
+
+func beginningOfDay(value time.Time) time.Time {
+	return time.Date(value.Year(), value.Month(), value.Day(), 0, 0, 0, 0, time.UTC)
 }
 
 func parseCustomerProjectID(id string) (uuid.UUID, errors.ApiError) {

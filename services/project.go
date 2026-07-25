@@ -26,14 +26,24 @@ type Project interface {
 }
 
 type project struct {
-	repository repositories.Project
+	repository  repositories.Project
+	billingSync CustomerProjectBillingSync
 }
 
-func NewProjectService(repository repositories.Project) Project {
-	return project{repository: repository}
+func NewProjectService(repository repositories.Project, billingSync ...CustomerProjectBillingSync) Project {
+	service := project{repository: repository}
+	if len(billingSync) > 0 {
+		service.billingSync = billingSync[0]
+	}
+
+	return service
 }
 
 func (p project) List(ctx context.Context, params commonsmodels.PaginatedParams) (commonsmodels.PaginatedResponse[dto.ProjectResponse], errors.ApiError) {
+	if apiErr := p.syncBilling(ctx); apiErr != nil {
+		return commonsmodels.PaginatedResponse[dto.ProjectResponse]{}, apiErr
+	}
+
 	projects, total, err := p.repository.List(ctx, params)
 	if err != nil {
 		return commonsmodels.PaginatedResponse[dto.ProjectResponse]{}, internalProjectError("LIST_PROJECTS_FAILED")
@@ -52,6 +62,10 @@ func (p project) List(ctx context.Context, params commonsmodels.PaginatedParams)
 }
 
 func (p project) Overview(ctx context.Context) (commonsmodels.ResponseList[dto.ProjectOverviewResponse], errors.ApiError) {
+	if apiErr := p.syncBilling(ctx); apiErr != nil {
+		return commonsmodels.ResponseList[dto.ProjectOverviewResponse]{}, apiErr
+	}
+
 	projects, err := p.repository.Overview(ctx)
 	if err != nil {
 		return commonsmodels.ResponseList[dto.ProjectOverviewResponse]{}, internalProjectError("LIST_PROJECTS_OVERVIEW_FAILED")
@@ -74,12 +88,24 @@ func (p project) FindByID(ctx context.Context, id string) (dto.ProjectResponse, 
 		return dto.ProjectResponse{}, apiErr
 	}
 
+	if apiErr := p.syncBilling(ctx); apiErr != nil {
+		return dto.ProjectResponse{}, apiErr
+	}
+
 	project, err := p.repository.FindByID(ctx, projectID)
 	if err != nil {
 		return dto.ProjectResponse{}, projectRepositoryError(err, "FIND_PROJECT_FAILED")
 	}
 
 	return dto.ProjectResponseFromModel(project), nil
+}
+
+func (p project) syncBilling(ctx context.Context) errors.ApiError {
+	if p.billingSync == nil {
+		return nil
+	}
+
+	return p.billingSync.SyncOverdue(ctx)
 }
 
 func (p project) Create(ctx context.Context, request dto.ProjectRequest) (dto.ProjectResponse, errors.ApiError) {

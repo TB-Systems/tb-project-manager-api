@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"net/http"
 	"testing"
 
 	"github.com/TB-Systems/go-commons/commonsmodels"
@@ -13,24 +12,7 @@ import (
 )
 
 func TestCustomerProjectServiceCreate(t *testing.T) {
-	t.Run("rejects project already linked to another customer", func(t *testing.T) {
-		repository := &fakeCustomerProjectRepository{projectLinkedExists: true}
-		service := NewCustomerProjectService(repository, &fakeCustomerProjectStatusSync{})
-
-		_, apiErr := service.Create(context.Background(), validCustomerProjectRequest())
-
-		if apiErr == nil {
-			t.Fatal("Expected project already linked error")
-		}
-		if apiErr.GetStatus() != http.StatusConflict {
-			t.Fatalf("Expected status %d, got %d", http.StatusConflict, apiErr.GetStatus())
-		}
-		if !repository.projectLinkedExistsCalled {
-			t.Fatal("Expected project linked lookup to be called")
-		}
-	})
-
-	t.Run("creates link when project has no customer", func(t *testing.T) {
+	t.Run("creates link when project can have more than one customer", func(t *testing.T) {
 		repository := &fakeCustomerProjectRepository{}
 		statusSync := &fakeCustomerProjectStatusSync{}
 		service := NewCustomerProjectService(repository, statusSync)
@@ -46,31 +28,22 @@ func TestCustomerProjectServiceCreate(t *testing.T) {
 		if len(statusSync.syncedProjectIDs) != 1 || statusSync.syncedProjectIDs[0] != response.ProjectID {
 			t.Fatalf("Expected linked project %s status to be synced, got %#v", response.ProjectID, statusSync.syncedProjectIDs)
 		}
+		if response.Status != models.CustomerProjectStatusActive {
+			t.Fatalf("Expected active customer project status, got %d", response.Status)
+		}
+		if len(response.Terms) != 1 {
+			t.Fatalf("Expected active commercial term to be created, got %d", len(response.Terms))
+		}
+		if len(response.Invoices) != 2 {
+			t.Fatalf("Expected setup invoices to be created, got %d", len(response.Invoices))
+		}
+		if response.BillingStatus != models.CustomerProjectBillingStatusSetupPending {
+			t.Fatalf("Expected setup pending billing status, got %d", response.BillingStatus)
+		}
 	})
 }
 
 func TestCustomerProjectServiceUpdate(t *testing.T) {
-	t.Run("rejects moving link to project already linked to another customer", func(t *testing.T) {
-		id := uuid.New()
-		repository := &fakeCustomerProjectRepository{
-			customerProject:     models.CustomerProject{ID: id},
-			projectLinkedExists: true,
-		}
-		service := NewCustomerProjectService(repository, &fakeCustomerProjectStatusSync{})
-
-		_, apiErr := service.Update(context.Background(), id.String(), validCustomerProjectRequest())
-
-		if apiErr == nil {
-			t.Fatal("Expected project already linked error")
-		}
-		if apiErr.GetStatus() != http.StatusConflict {
-			t.Fatalf("Expected status %d, got %d", http.StatusConflict, apiErr.GetStatus())
-		}
-		if repository.projectLinkedExceptID == nil || *repository.projectLinkedExceptID != id {
-			t.Fatal("Expected update to ignore current customer project link")
-		}
-	})
-
 	t.Run("syncs old and new project when moving customer link", func(t *testing.T) {
 		id := uuid.New()
 		oldProjectID := uuid.New()
@@ -118,21 +91,19 @@ func TestCustomerProjectServiceDelete(t *testing.T) {
 
 func validCustomerProjectRequest() dto.CustomerProjectRequest {
 	return dto.CustomerProjectRequest{
-		ProjectID:  uuid.New(),
-		CustomerID: uuid.New(),
-		DueDay:     10,
+		ProjectID:    uuid.New(),
+		CustomerID:   uuid.New(),
+		ProjectValue: 10000,
+		MonthlyValue: 1500,
+		DueDay:       10,
 	}
 }
 
 type fakeCustomerProjectRepository struct {
-	customerProject           models.CustomerProject
-	findErr                   error
-	linkExists                bool
-	linkErr                   error
-	projectLinkedExists       bool
-	projectLinkedErr          error
-	projectLinkedExistsCalled bool
-	projectLinkedExceptID     *uuid.UUID
+	customerProject models.CustomerProject
+	findErr         error
+	linkExists      bool
+	linkErr         error
 }
 
 func (f *fakeCustomerProjectRepository) List(context.Context, commonsmodels.PaginatedParams) ([]models.CustomerProject, int64, error) {
@@ -166,15 +137,6 @@ func (f *fakeCustomerProjectRepository) LinkExists(context.Context, uuid.UUID, u
 		return false, f.linkErr
 	}
 	return f.linkExists, nil
-}
-
-func (f *fakeCustomerProjectRepository) ProjectLinkedExists(_ context.Context, _ uuid.UUID, exceptID *uuid.UUID) (bool, error) {
-	f.projectLinkedExistsCalled = true
-	f.projectLinkedExceptID = exceptID
-	if f.projectLinkedErr != nil {
-		return false, f.projectLinkedErr
-	}
-	return f.projectLinkedExists, nil
 }
 
 type fakeCustomerProjectStatusSync struct {

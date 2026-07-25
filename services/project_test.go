@@ -96,13 +96,13 @@ func TestProjectServiceFindByID(t *testing.T) {
 				ID: projectID,
 				CustomerProjects: []models.CustomerProject{
 					{
-						ID:                   customerProjectID,
-						ProjectID:            projectID,
-						CustomerID:           customerID,
-						ProjectValue:         250000,
-						MonthlyValue:         15000,
-						DueDay:               10,
-						ProjectPaymentStatus: models.ProjectPaymentStatusFirstHalfPending,
+						ID:         customerProjectID,
+						ProjectID:  projectID,
+						CustomerID: customerID,
+						Status:     models.CustomerProjectStatusActive,
+						Terms: []models.CustomerProjectTerm{
+							{SetupValue: 250000, MonthlyValue: 15000, DueDay: 10, Active: true},
+						},
 						Customer: models.Customer{
 							ID:     customerID,
 							Name:   "TiB",
@@ -119,14 +119,14 @@ func TestProjectServiceFindByID(t *testing.T) {
 		if apiErr != nil {
 			t.Fatalf("Expected project detail, got status %d", apiErr.GetStatus())
 		}
-		if response.CustomerProject == nil {
+		if len(response.CustomerProjects) != 1 {
 			t.Fatal("Expected customer project relation")
 		}
-		if response.CustomerProject.ID != customerProjectID {
-			t.Fatalf("Expected customer project ID %s, got %s", customerProjectID, response.CustomerProject.ID)
+		if response.CustomerProjects[0].ID != customerProjectID {
+			t.Fatalf("Expected customer project ID %s, got %s", customerProjectID, response.CustomerProjects[0].ID)
 		}
-		if response.CustomerProject.Customer.ID != customerID {
-			t.Fatalf("Expected nested customer ID %s, got %s", customerID, response.CustomerProject.Customer.ID)
+		if response.CustomerProjects[0].Customer.ID != customerID {
+			t.Fatalf("Expected nested customer ID %s, got %s", customerID, response.CustomerProjects[0].Customer.ID)
 		}
 	})
 }
@@ -164,10 +164,13 @@ func TestProjectServiceOverview(t *testing.T) {
 				Status: models.ProjectStatusDeveloping,
 				CustomerProjects: []models.CustomerProject{
 					{
-						ProjectValue:         10000,
-						MonthlyValue:         1500,
-						DueDay:               10,
-						ProjectPaymentStatus: models.ProjectPaymentStatusFirstHalfPaid,
+						Status: models.CustomerProjectStatusActive,
+						Terms: []models.CustomerProjectTerm{
+							{SetupValue: 10000, MonthlyValue: 1500, DueDay: 10, Active: true},
+						},
+						Invoices: []models.CustomerProjectInvoice{
+							{Type: models.CustomerProjectInvoiceTypeSetupFirstHalf, Status: models.CustomerProjectInvoiceStatusPaid},
+						},
 						Customer: models.Customer{
 							ID:     customerID,
 							Name:   "ACME",
@@ -198,16 +201,16 @@ func TestProjectServiceOverview(t *testing.T) {
 	if len(response.Items) != 2 {
 		t.Fatalf("Expected 2 projects, got %d", len(response.Items))
 	}
-	if response.Items[0].Customer == nil {
+	if len(response.Items[0].Customers) != 1 {
 		t.Fatal("Expected first project customer")
 	}
-	if response.Items[0].Customer.ID != customerID {
-		t.Fatalf("Expected customer ID %s, got %s", customerID, response.Items[0].Customer.ID)
+	if response.Items[0].Customers[0].ID != customerID {
+		t.Fatalf("Expected customer ID %s, got %s", customerID, response.Items[0].Customers[0].ID)
 	}
 	if len(response.Items[0].Services) != 1 {
 		t.Fatalf("Expected one service, got %d", len(response.Items[0].Services))
 	}
-	if response.Items[1].Customer != nil {
+	if len(response.Items[1].Customers) != 0 {
 		t.Fatal("Expected second project without customer")
 	}
 	if response.Total != 2 {

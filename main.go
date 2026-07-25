@@ -45,6 +45,10 @@ func main() {
 
 	app := app.NewApp(router, db, cfg)
 	app.RegisterRoutes()
+	if err := app.StartJobs(); err != nil {
+		panic(err)
+	}
+	defer app.StopJobs()
 
 	port := cfg.Port
 	if port == "" {

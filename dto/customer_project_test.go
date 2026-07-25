@@ -3,6 +3,7 @@ package dto
 import (
 	"testing"
 
+	"github.com/TB-Systems/tb-project-manager-api/models"
 	"github.com/google/uuid"
 )
 
@@ -30,6 +31,25 @@ func TestCustomerProjectRequestValidate(t *testing.T) {
 
 		if errs := request.Validate(); len(errs) != 4 {
 			t.Fatalf("Expected 4 validation errors, got %d", len(errs))
+		}
+	})
+}
+
+func TestCustomerProjectBillingStatusFromInvoices(t *testing.T) {
+	t.Run("returns monthly ok when setup is fully paid and monthly invoice does not exist yet", func(t *testing.T) {
+		status := CustomerProjectBillingStatusFromInvoices(models.CustomerProjectStatusActive, []models.CustomerProjectInvoice{
+			{
+				Type:   models.CustomerProjectInvoiceTypeSetupFirstHalf,
+				Status: models.CustomerProjectInvoiceStatusPaid,
+			},
+			{
+				Type:   models.CustomerProjectInvoiceTypeSetupSecondHalf,
+				Status: models.CustomerProjectInvoiceStatusPaid,
+			},
+		})
+
+		if status != models.CustomerProjectBillingStatusMonthlyOK {
+			t.Fatalf("Expected monthly ok billing status, got %d", status)
 		}
 	})
 }

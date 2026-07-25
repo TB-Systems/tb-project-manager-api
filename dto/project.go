@@ -18,54 +18,55 @@ type ProjectRequest struct {
 }
 
 type ProjectResponse struct {
-	ID              uuid.UUID                       `json:"id"`
-	Name            string                          `json:"name"`
-	Description     string                          `json:"description"`
-	Slug            string                          `json:"slug"`
-	RepoURL         string                          `json:"repo_url"`
-	Status          models.ProjectStatus            `json:"status"`
-	CustomerProject *ProjectCustomerProjectResponse `json:"customer_project"`
-	CreatedAt       time.Time                       `json:"created_at"`
-	UpdatedAt       time.Time                       `json:"updated_at"`
+	ID               uuid.UUID                        `json:"id"`
+	Name             string                           `json:"name"`
+	Description      string                           `json:"description"`
+	Slug             string                           `json:"slug"`
+	RepoURL          string                           `json:"repo_url"`
+	Status           models.ProjectStatus             `json:"status"`
+	CustomerProjects []ProjectCustomerProjectResponse `json:"customer_projects"`
+	CreatedAt        time.Time                        `json:"created_at"`
+	UpdatedAt        time.Time                        `json:"updated_at"`
 }
 
 type ProjectCustomerProjectResponse struct {
-	ID                   uuid.UUID                   `json:"id"`
-	ProjectID            uuid.UUID                   `json:"project_id"`
-	CustomerID           uuid.UUID                   `json:"customer_id"`
-	ProjectValue         int                         `json:"project_value"`
-	MonthlyValue         int                         `json:"monthly_value"`
-	DueDay               int                         `json:"due_day"`
-	ProjectPaymentStatus models.ProjectPaymentStatus `json:"project_payment_status"`
-	LastPayment          *time.Time                  `json:"last_payment"`
-	Customer             CustomerResponse            `json:"customer"`
-	CreatedAt            time.Time                   `json:"created_at"`
-	UpdatedAt            time.Time                   `json:"updated_at"`
+	ID            uuid.UUID                           `json:"id"`
+	ProjectID     uuid.UUID                           `json:"project_id"`
+	CustomerID    uuid.UUID                           `json:"customer_id"`
+	Status        models.CustomerProjectStatus        `json:"status"`
+	BillingStatus models.CustomerProjectBillingStatus `json:"billing_status"`
+	ProjectValue  int                                 `json:"project_value"`
+	MonthlyValue  int                                 `json:"monthly_value"`
+	DueDay        int                                 `json:"due_day"`
+	Customer      CustomerResponse                    `json:"customer"`
+	StartedAt     time.Time                           `json:"started_at"`
+	ClosedAt      *time.Time                          `json:"closed_at"`
+	CreatedAt     time.Time                           `json:"created_at"`
+	UpdatedAt     time.Time                           `json:"updated_at"`
 }
 
 type ProjectOverviewResponse struct {
-	ID          uuid.UUID                        `json:"id"`
-	Name        string                           `json:"name"`
-	Description string                           `json:"description"`
-	Slug        string                           `json:"slug"`
-	RepoURL     string                           `json:"repo_url"`
-	Status      models.ProjectStatus             `json:"status"`
-	Customer    *ProjectOverviewCustomerResponse `json:"customer"`
-	Services    []ProjectOverviewServiceResponse `json:"services"`
-	CreatedAt   time.Time                        `json:"created_at"`
-	UpdatedAt   time.Time                        `json:"updated_at"`
+	ID          uuid.UUID                         `json:"id"`
+	Name        string                            `json:"name"`
+	Description string                            `json:"description"`
+	Slug        string                            `json:"slug"`
+	RepoURL     string                            `json:"repo_url"`
+	Status      models.ProjectStatus              `json:"status"`
+	Customers   []ProjectOverviewCustomerResponse `json:"customers"`
+	Services    []ProjectOverviewServiceResponse  `json:"services"`
+	CreatedAt   time.Time                         `json:"created_at"`
+	UpdatedAt   time.Time                         `json:"updated_at"`
 }
 
 type ProjectOverviewCustomerResponse struct {
-	ID                   uuid.UUID                   `json:"id"`
-	Name                 string                      `json:"name"`
-	Slug                 string                      `json:"slug"`
-	Status               models.CustomerStatus       `json:"status"`
-	ProjectValue         int                         `json:"project_value"`
-	MonthlyValue         int                         `json:"monthly_value"`
-	DueDay               int                         `json:"due_day"`
-	ProjectPaymentStatus models.ProjectPaymentStatus `json:"project_payment_status"`
-	LastPayment          *time.Time                  `json:"last_payment"`
+	ID            uuid.UUID                           `json:"id"`
+	Name          string                              `json:"name"`
+	Slug          string                              `json:"slug"`
+	Status        models.CustomerStatus               `json:"status"`
+	ProjectValue  int                                 `json:"project_value"`
+	MonthlyValue  int                                 `json:"monthly_value"`
+	DueDay        int                                 `json:"due_day"`
+	BillingStatus models.CustomerProjectBillingStatus `json:"billing_status"`
 }
 
 type ProjectOverviewServiceResponse struct {
@@ -102,37 +103,40 @@ func (request ProjectRequest) Validate() []errors.ApiErrorItem {
 
 func ProjectResponseFromModel(project models.Project) ProjectResponse {
 	return ProjectResponse{
-		ID:              project.ID,
-		Name:            project.Name,
-		Description:     project.Description,
-		Slug:            project.Slug,
-		RepoURL:         project.RepoURL,
-		Status:          project.Status,
-		CustomerProject: projectCustomerProjectFromModel(project.CustomerProjects),
-		CreatedAt:       project.CreatedAt,
-		UpdatedAt:       project.UpdatedAt,
+		ID:               project.ID,
+		Name:             project.Name,
+		Description:      project.Description,
+		Slug:             project.Slug,
+		RepoURL:          project.RepoURL,
+		Status:           project.Status,
+		CustomerProjects: projectCustomerProjectsFromModel(project.CustomerProjects),
+		CreatedAt:        project.CreatedAt,
+		UpdatedAt:        project.UpdatedAt,
 	}
 }
 
-func projectCustomerProjectFromModel(customerProjects []models.CustomerProject) *ProjectCustomerProjectResponse {
-	if len(customerProjects) == 0 {
-		return nil
+func projectCustomerProjectsFromModel(customerProjects []models.CustomerProject) []ProjectCustomerProjectResponse {
+	items := make([]ProjectCustomerProjectResponse, 0, len(customerProjects))
+	for _, customerProject := range customerProjects {
+		projectValue, monthlyValue, dueDay := currentCommercialTerms(customerProject.Terms)
+		items = append(items, ProjectCustomerProjectResponse{
+			ID:            customerProject.ID,
+			ProjectID:     customerProject.ProjectID,
+			CustomerID:    customerProject.CustomerID,
+			Status:        customerProject.Status,
+			BillingStatus: CustomerProjectBillingStatusFromInvoices(customerProject.Status, customerProject.Invoices),
+			ProjectValue:  projectValue,
+			MonthlyValue:  monthlyValue,
+			DueDay:        dueDay,
+			Customer:      CustomerResponseFromModel(customerProject.Customer),
+			StartedAt:     customerProject.StartedAt,
+			ClosedAt:      customerProject.ClosedAt,
+			CreatedAt:     customerProject.CreatedAt,
+			UpdatedAt:     customerProject.UpdatedAt,
+		})
 	}
 
-	customerProject := customerProjects[0]
-	return &ProjectCustomerProjectResponse{
-		ID:                   customerProject.ID,
-		ProjectID:            customerProject.ProjectID,
-		CustomerID:           customerProject.CustomerID,
-		ProjectValue:         customerProject.ProjectValue,
-		MonthlyValue:         customerProject.MonthlyValue,
-		DueDay:               customerProject.DueDay,
-		ProjectPaymentStatus: customerProject.ProjectPaymentStatus,
-		LastPayment:          customerProject.LastPayment,
-		Customer:             CustomerResponseFromModel(customerProject.Customer),
-		CreatedAt:            customerProject.CreatedAt,
-		UpdatedAt:            customerProject.UpdatedAt,
-	}
+	return items
 }
 
 func ProjectOverviewResponseFromModel(project models.Project) ProjectOverviewResponse {
@@ -156,28 +160,28 @@ func ProjectOverviewResponseFromModel(project models.Project) ProjectOverviewRes
 		Slug:        project.Slug,
 		RepoURL:     project.RepoURL,
 		Status:      project.Status,
-		Customer:    projectOverviewCustomerFromModel(project.CustomerProjects),
+		Customers:   projectOverviewCustomersFromModel(project.CustomerProjects),
 		Services:    services,
 		CreatedAt:   project.CreatedAt,
 		UpdatedAt:   project.UpdatedAt,
 	}
 }
 
-func projectOverviewCustomerFromModel(customerProjects []models.CustomerProject) *ProjectOverviewCustomerResponse {
-	if len(customerProjects) == 0 {
-		return nil
+func projectOverviewCustomersFromModel(customerProjects []models.CustomerProject) []ProjectOverviewCustomerResponse {
+	items := make([]ProjectOverviewCustomerResponse, 0, len(customerProjects))
+	for _, customerProject := range customerProjects {
+		projectValue, monthlyValue, dueDay := currentCommercialTerms(customerProject.Terms)
+		items = append(items, ProjectOverviewCustomerResponse{
+			ID:            customerProject.Customer.ID,
+			Name:          customerProject.Customer.Name,
+			Slug:          customerProject.Customer.Slug,
+			Status:        customerProject.Customer.Status,
+			ProjectValue:  projectValue,
+			MonthlyValue:  monthlyValue,
+			DueDay:        dueDay,
+			BillingStatus: CustomerProjectBillingStatusFromInvoices(customerProject.Status, customerProject.Invoices),
+		})
 	}
 
-	customerProject := customerProjects[0]
-	return &ProjectOverviewCustomerResponse{
-		ID:                   customerProject.Customer.ID,
-		Name:                 customerProject.Customer.Name,
-		Slug:                 customerProject.Customer.Slug,
-		Status:               customerProject.Customer.Status,
-		ProjectValue:         customerProject.ProjectValue,
-		MonthlyValue:         customerProject.MonthlyValue,
-		DueDay:               customerProject.DueDay,
-		ProjectPaymentStatus: customerProject.ProjectPaymentStatus,
-		LastPayment:          customerProject.LastPayment,
-	}
+	return items
 }

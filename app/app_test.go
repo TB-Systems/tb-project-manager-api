@@ -34,6 +34,9 @@ func TestNewApp(t *testing.T) {
 	if app.CustomerProjectsHandler == nil {
 		t.Fatal("Expected customer projects handler to be initialized")
 	}
+	if app.CustomerProjectInvoicesHandler == nil {
+		t.Fatal("Expected customer project invoices handler to be initialized")
+	}
 	if app.ProjectServicesHandler == nil {
 		t.Fatal("Expected project services handler to be initialized")
 	}
@@ -46,6 +49,12 @@ func TestNewApp(t *testing.T) {
 	if app.AuthService == nil {
 		t.Fatal("Expected auth service to be initialized")
 	}
+	if app.Scheduler == nil {
+		t.Fatal("Expected scheduler to be initialized")
+	}
+	if app.DailyBillingJob == nil {
+		t.Fatal("Expected daily billing job to be initialized")
+	}
 }
 
 func TestRegisterRoutes(t *testing.T) {
@@ -57,35 +66,39 @@ func TestRegisterRoutes(t *testing.T) {
 
 	routes := router.Routes()
 	expectedRoutes := map[string]bool{
-		"GET /api/v1/healthcheck":              false,
-		"GET /api/v1/dashboard":                false,
-		"GET /api/v1/projects":                 false,
-		"GET /api/v1/projects/:id":             false,
-		"POST /api/v1/projects":                false,
-		"PUT /api/v1/projects/:id":             false,
-		"DELETE /api/v1/projects/:id":          false,
-		"GET /api/v1/customers":                false,
-		"GET /api/v1/customers/:id":            false,
-		"POST /api/v1/customers":               false,
-		"PUT /api/v1/customers/:id":            false,
-		"DELETE /api/v1/customers/:id":         false,
-		"GET /api/v1/customer-projects":        false,
-		"GET /api/v1/customer-projects/:id":    false,
-		"POST /api/v1/customer-projects":       false,
-		"PUT /api/v1/customer-projects/:id":    false,
-		"DELETE /api/v1/customer-projects/:id": false,
-		"GET /api/v1/project-services":         false,
-		"GET /api/v1/project-services/:id":     false,
-		"POST /api/v1/project-services":        false,
-		"PUT /api/v1/project-services/:id":     false,
-		"DELETE /api/v1/project-services/:id":  false,
-		"GET /api/v1/service-checks":           false,
-		"GET /api/v1/service-checks/:id":       false,
-		"GET /api/v1/service-logs":             false,
-		"GET /api/v1/service-logs/:id":         false,
-		"POST /api/v1/service-logs":            false,
-		"POST /api/v1/auth/login":              false,
-		"POST /api/v1/auth/logout":             false,
+		"GET /api/v1/healthcheck":                         false,
+		"GET /api/v1/dashboard":                           false,
+		"GET /api/v1/projects":                            false,
+		"GET /api/v1/projects/:id":                        false,
+		"POST /api/v1/projects":                           false,
+		"PUT /api/v1/projects/:id":                        false,
+		"DELETE /api/v1/projects/:id":                     false,
+		"GET /api/v1/customers":                           false,
+		"GET /api/v1/customers/:id":                       false,
+		"POST /api/v1/customers":                          false,
+		"PUT /api/v1/customers/:id":                       false,
+		"DELETE /api/v1/customers/:id":                    false,
+		"GET /api/v1/customer-projects":                   false,
+		"GET /api/v1/customer-projects/:id":               false,
+		"POST /api/v1/customer-projects":                  false,
+		"POST /api/v1/customer-projects/:id/invoices":     false,
+		"PUT /api/v1/customer-projects/:id":               false,
+		"DELETE /api/v1/customer-projects/:id":            false,
+		"PUT /api/v1/customer-project-invoices/:id":       false,
+		"PUT /api/v1/customer-project-invoices/:id/pay":   false,
+		"PUT /api/v1/customer-project-invoices/:id/unpay": false,
+		"GET /api/v1/project-services":                    false,
+		"GET /api/v1/project-services/:id":                false,
+		"POST /api/v1/project-services":                   false,
+		"PUT /api/v1/project-services/:id":                false,
+		"DELETE /api/v1/project-services/:id":             false,
+		"GET /api/v1/service-checks":                      false,
+		"GET /api/v1/service-checks/:id":                  false,
+		"GET /api/v1/service-logs":                        false,
+		"GET /api/v1/service-logs/:id":                    false,
+		"POST /api/v1/service-logs":                       false,
+		"POST /api/v1/auth/login":                         false,
+		"POST /api/v1/auth/logout":                        false,
 	}
 
 	for _, route := range routes {

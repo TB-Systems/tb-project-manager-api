@@ -16,7 +16,6 @@ type CustomerProject interface {
 	Update(ctx context.Context, customerProject models.CustomerProject) (models.CustomerProject, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	LinkExists(ctx context.Context, projectID uuid.UUID, customerID uuid.UUID, exceptID *uuid.UUID) (bool, error)
-	ProjectLinkedExists(ctx context.Context, projectID uuid.UUID, exceptID *uuid.UUID) (bool, error)
 }
 
 type customerProject struct {
@@ -37,6 +36,12 @@ func (c customerProject) List(ctx context.Context, params commonsmodels.Paginate
 	}
 
 	err := query.
+		Preload("Terms", func(db *gorm.DB) *gorm.DB {
+			return db.Order("active DESC, starts_at DESC")
+		}).
+		Preload("Invoices", func(db *gorm.DB) *gorm.DB {
+			return db.Order("due_date ASC, created_at ASC")
+		}).
 		Order("created_at DESC").
 		Limit(int(params.Limit)).
 		Offset(int(params.Offset)).
@@ -51,7 +56,14 @@ func (c customerProject) List(ctx context.Context, params commonsmodels.Paginate
 
 func (c customerProject) FindByID(ctx context.Context, id uuid.UUID) (models.CustomerProject, error) {
 	var customerProject models.CustomerProject
-	if err := c.db.WithContext(ctx).First(&customerProject, "id = ?", id).Error; err != nil {
+	if err := c.db.WithContext(ctx).
+		Preload("Terms", func(db *gorm.DB) *gorm.DB {
+			return db.Order("active DESC, starts_at DESC")
+		}).
+		Preload("Invoices", func(db *gorm.DB) *gorm.DB {
+			return db.Order("due_date ASC, created_at ASC")
+		}).
+		First(&customerProject, "id = ?", id).Error; err != nil {
 		return models.CustomerProject{}, err
 	}
 
@@ -63,23 +75,43 @@ func (c customerProject) Create(ctx context.Context, customerProject models.Cust
 		return models.CustomerProject{}, err
 	}
 
-	return customerProject, nil
+	return c.FindByID(ctx, customerProject.ID)
 }
 
 func (c customerProject) Update(ctx context.Context, customerProject models.CustomerProject) (models.CustomerProject, error) {
-	err := c.db.WithContext(ctx).
-		Model(&models.CustomerProject{}).
-		Where("id = ?", customerProject.ID).
-		Updates(map[string]interface{}{
-			"project_id":             customerProject.ProjectID,
-			"customer_id":            customerProject.CustomerID,
-			"project_value":          customerProject.ProjectValue,
-			"monthly_value":          customerProject.MonthlyValue,
-			"due_day":                customerProject.DueDay,
-			"project_payment_status": customerProject.ProjectPaymentStatus,
-			"last_payment":           customerProject.LastPayment,
-		}).
-		Error
+	err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.
+			Model(&models.CustomerProject{}).
+			Where("id = ?", customerProject.ID).
+			Updates(map[string]interface{}{
+				"project_id":  customerProject.ProjectID,
+				"customer_id": customerProject.CustomerID,
+				"status":      customerProject.Status,
+				"started_at":  customerProject.StartedAt,
+				"closed_at":   customerProject.ClosedAt,
+			}).
+			Error; err != nil {
+			return err
+		}
+
+		if len(customerProject.Terms) > 0 {
+			if err := tx.
+				Model(&models.CustomerProjectTerm{}).
+				Where("customer_project_id = ? AND active = ?", customerProject.ID, true).
+				Update("active", false).
+				Error; err != nil {
+				return err
+			}
+
+			term := customerProject.Terms[0]
+			term.CustomerProjectID = customerProject.ID
+			if err := tx.Create(&term).Error; err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 	if err != nil {
 		return models.CustomerProject{}, err
 	}
@@ -97,23 +129,6 @@ func (c customerProject) LinkExists(ctx context.Context, projectID uuid.UUID, cu
 	query := c.db.WithContext(ctx).
 		Model(&models.CustomerProject{}).
 		Where("project_id = ? AND customer_id = ?", projectID, customerID)
-	if exceptID != nil {
-		query = query.Where("id <> ?", *exceptID)
-	}
-
-	if err := query.Count(&total).Error; err != nil {
-		return false, err
-	}
-
-	return total > 0, nil
-}
-
-func (c customerProject) ProjectLinkedExists(ctx context.Context, projectID uuid.UUID, exceptID *uuid.UUID) (bool, error) {
-	var total int64
-
-	query := c.db.WithContext(ctx).
-		Model(&models.CustomerProject{}).
-		Where("project_id = ?", projectID)
 	if exceptID != nil {
 		query = query.Where("id <> ?", *exceptID)
 	}

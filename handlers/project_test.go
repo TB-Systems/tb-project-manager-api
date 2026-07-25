@@ -49,8 +49,8 @@ func TestProjectHandlers(t *testing.T) {
 		if !strings.Contains(w.Body.String(), `"name":"TB Manager"`) {
 			t.Fatalf("Expected project response, got %q", w.Body.String())
 		}
-		if !strings.Contains(w.Body.String(), `"customer_project"`) {
-			t.Fatalf("Expected project detail with customer_project field, got %q", w.Body.String())
+		if !strings.Contains(w.Body.String(), `"customer_projects"`) {
+			t.Fatalf("Expected project detail with customer_projects field, got %q", w.Body.String())
 		}
 	})
 
@@ -66,8 +66,8 @@ func TestProjectHandlers(t *testing.T) {
 		if w.Code != http.StatusOK {
 			t.Fatalf("Expected status %d, got %d", http.StatusOK, w.Code)
 		}
-		if !strings.Contains(w.Body.String(), `"customer"`) {
-			t.Fatalf("Expected overview response with customer field, got %q", w.Body.String())
+		if !strings.Contains(w.Body.String(), `"customers"`) {
+			t.Fatalf("Expected overview response with customers field, got %q", w.Body.String())
 		}
 		if !strings.Contains(w.Body.String(), `"services"`) {
 			t.Fatalf("Expected overview response with services field, got %q", w.Body.String())
@@ -124,10 +124,10 @@ func (f *fakeProjectService) Overview(context.Context) (commonsmodels.ResponseLi
 	return commonsmodels.ResponseList[dto.ProjectOverviewResponse]{
 		Items: []dto.ProjectOverviewResponse{
 			{
-				Name:     "TB Manager",
-				Slug:     "tb-manager",
-				Customer: nil,
-				Services: []dto.ProjectOverviewServiceResponse{{Name: "API"}},
+				Name:      "TB Manager",
+				Slug:      "tb-manager",
+				Customers: nil,
+				Services:  []dto.ProjectOverviewServiceResponse{{Name: "API"}},
 			},
 		},
 		Total: 1,
@@ -135,7 +135,7 @@ func (f *fakeProjectService) Overview(context.Context) (commonsmodels.ResponseLi
 }
 
 func (f *fakeProjectService) FindByID(context.Context, string) (dto.ProjectResponse, commonsErrors.ApiError) {
-	return dto.ProjectResponse{Name: "TB Manager", Slug: "tb-manager", CustomerProject: nil}, nil
+	return dto.ProjectResponse{Name: "TB Manager", Slug: "tb-manager", CustomerProjects: nil}, nil
 }
 
 func (f *fakeProjectService) Create(_ context.Context, request dto.ProjectRequest) (dto.ProjectResponse, commonsErrors.ApiError) {

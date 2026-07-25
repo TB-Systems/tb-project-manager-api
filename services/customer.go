@@ -26,14 +26,31 @@ type Customer interface {
 
 type customer struct {
 	repository repositories.Customer
+	statusSync CustomerStatusSync
 }
 
-func NewCustomerService(repository repositories.Customer) Customer {
-	return customer{repository: repository}
+func NewCustomerService(repository repositories.Customer, statusSync ...CustomerStatusSync) Customer {
+	service := customer{repository: repository}
+	if len(statusSync) > 0 {
+		service.statusSync = statusSync[0]
+	}
+
+	return service
 }
 
 func (c customer) List(ctx context.Context, params commonsmodels.PaginatedParams) (commonsmodels.PaginatedResponse[dto.CustomerResponse], errors.ApiError) {
 	customers, total, err := c.repository.List(ctx, params)
+	if err != nil {
+		return commonsmodels.PaginatedResponse[dto.CustomerResponse]{}, internalCustomerError("LIST_CUSTOMERS_FAILED")
+	}
+
+	for _, customer := range customers {
+		if apiErr := c.syncStatus(ctx, customer.ID); apiErr != nil {
+			return commonsmodels.PaginatedResponse[dto.CustomerResponse]{}, apiErr
+		}
+	}
+
+	customers, _, err = c.repository.List(ctx, params)
 	if err != nil {
 		return commonsmodels.PaginatedResponse[dto.CustomerResponse]{}, internalCustomerError("LIST_CUSTOMERS_FAILED")
 	}
@@ -56,6 +73,10 @@ func (c customer) FindByID(ctx context.Context, id string) (dto.CustomerResponse
 		return dto.CustomerResponse{}, apiErr
 	}
 
+	if apiErr := c.syncStatus(ctx, customerID); apiErr != nil {
+		return dto.CustomerResponse{}, apiErr
+	}
+
 	customer, err := c.repository.FindByID(ctx, customerID)
 	if err != nil {
 		return dto.CustomerResponse{}, customerRepositoryError(err, "FIND_CUSTOMER_FAILED")
@@ -74,6 +95,19 @@ func (c customer) Create(ctx context.Context, request dto.CustomerRequest) (dto.
 	createdCustomer, err := c.repository.Create(ctx, customer)
 	if err != nil {
 		return dto.CustomerResponse{}, internalCustomerError("CREATE_CUSTOMER_FAILED")
+	}
+
+	if c.statusSync != nil {
+		if apiErr := c.syncStatus(ctx, createdCustomer.ID); apiErr != nil {
+			return dto.CustomerResponse{}, apiErr
+		}
+
+		syncedCustomer, err := c.repository.FindByID(ctx, createdCustomer.ID)
+		if err != nil {
+			return dto.CustomerResponse{}, customerRepositoryError(err, "FIND_CUSTOMER_FAILED")
+		}
+
+		return dto.CustomerResponseFromModel(syncedCustomer), nil
 	}
 
 	return dto.CustomerResponseFromModel(createdCustomer), nil
@@ -99,6 +133,19 @@ func (c customer) Update(ctx context.Context, id string, request dto.CustomerReq
 	updatedCustomer, err := c.repository.Update(ctx, customer)
 	if err != nil {
 		return dto.CustomerResponse{}, internalCustomerError("UPDATE_CUSTOMER_FAILED")
+	}
+
+	if c.statusSync != nil {
+		if apiErr := c.syncStatus(ctx, updatedCustomer.ID); apiErr != nil {
+			return dto.CustomerResponse{}, apiErr
+		}
+
+		syncedCustomer, err := c.repository.FindByID(ctx, updatedCustomer.ID)
+		if err != nil {
+			return dto.CustomerResponse{}, customerRepositoryError(err, "FIND_CUSTOMER_FAILED")
+		}
+
+		return dto.CustomerResponseFromModel(syncedCustomer), nil
 	}
 
 	return dto.CustomerResponseFromModel(updatedCustomer), nil
@@ -147,6 +194,14 @@ func (c customer) validateUniqueFields(ctx context.Context, customer models.Cust
 	}
 
 	return nil
+}
+
+func (c customer) syncStatus(ctx context.Context, customerID uuid.UUID) errors.ApiError {
+	if c.statusSync == nil {
+		return nil
+	}
+
+	return c.statusSync.Sync(ctx, customerID)
 }
 
 func customerFromRequest(request dto.CustomerRequest) models.Customer {

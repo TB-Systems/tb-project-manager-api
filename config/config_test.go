@@ -9,6 +9,8 @@ func TestLoad(t *testing.T) {
 	t.Setenv("APP_ENV", "production")
 	t.Setenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173, https://front.internal, ")
 	t.Setenv("DB_CONNECTION_STRING", "postgres-dsn")
+	t.Setenv("JOBS_ENABLED", "false")
+	t.Setenv("DAILY_BILLING_JOB_TIME", "02:30")
 	t.Setenv("PORT", "3000")
 	t.Setenv("TRUSTED_PROXIES", "127.0.0.1, 10.0.0.0/8, ")
 
@@ -26,6 +28,12 @@ func TestLoad(t *testing.T) {
 	}
 	if cfg.Port != "3000" {
 		t.Fatalf("Expected port 3000, got %q", cfg.Port)
+	}
+	if cfg.JobsEnabled {
+		t.Fatal("Expected jobs to be disabled")
+	}
+	if cfg.DailyBillingJobTime != "02:30" {
+		t.Fatalf("Expected daily billing job time 02:30, got %q", cfg.DailyBillingJobTime)
 	}
 
 	wantProxies := []string{"127.0.0.1", "10.0.0.0/8"}
@@ -49,6 +57,12 @@ func TestLoadDefaults(t *testing.T) {
 	wantOrigins := []string{"http://localhost:5173", "http://localhost:3000"}
 	if !reflect.DeepEqual(cfg.CORSAllowedOrigins, wantOrigins) {
 		t.Fatalf("Expected default CORS origins %v, got %v", wantOrigins, cfg.CORSAllowedOrigins)
+	}
+	if !cfg.JobsEnabled {
+		t.Fatal("Expected jobs to be enabled by default")
+	}
+	if cfg.DailyBillingJobTime != "01:00" {
+		t.Fatalf("Expected default daily billing job time 01:00, got %q", cfg.DailyBillingJobTime)
 	}
 }
 

@@ -6,12 +6,11 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestProjectPaymentStatusIsValid(t *testing.T) {
-	validStatuses := []ProjectPaymentStatus{
-		ProjectPaymentStatusFirstHalfPending,
-		ProjectPaymentStatusFirstHalfPaid,
-		ProjectPaymentStatusSecondHalfPending,
-		ProjectPaymentStatusSecondHalfPaid,
+func TestCustomerProjectStatusIsValid(t *testing.T) {
+	validStatuses := []CustomerProjectStatus{
+		CustomerProjectStatusActive,
+		CustomerProjectStatusPaused,
+		CustomerProjectStatusClosed,
 	}
 
 	for _, status := range validStatuses {
@@ -20,8 +19,28 @@ func TestProjectPaymentStatusIsValid(t *testing.T) {
 		}
 	}
 
-	if ProjectPaymentStatus(99).IsValid() {
-		t.Fatal("Expected unknown project payment status to be invalid")
+	if CustomerProjectStatus(99).IsValid() {
+		t.Fatal("Expected unknown customer project status to be invalid")
+	}
+}
+
+func TestCustomerProjectBillingStatusIsValid(t *testing.T) {
+	validStatuses := []CustomerProjectBillingStatus{
+		CustomerProjectBillingStatusSetupPending,
+		CustomerProjectBillingStatusSetupPartiallyPaid,
+		CustomerProjectBillingStatusMonthlyOK,
+		CustomerProjectBillingStatusMonthlyOverdue,
+		CustomerProjectBillingStatusClosed,
+	}
+
+	for _, status := range validStatuses {
+		if !status.IsValid() {
+			t.Fatalf("Expected status %d to be valid", status)
+		}
+	}
+
+	if CustomerProjectBillingStatus(99).IsValid() {
+		t.Fatal("Expected unknown billing status to be invalid")
 	}
 }
 

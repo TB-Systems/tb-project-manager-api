@@ -61,8 +61,17 @@ func (a *App) RegisterRoutes() {
 		customerProjects.GET("", a.CustomerProjectsHandler.List())
 		customerProjects.GET("/:id", a.CustomerProjectsHandler.FindByID())
 		customerProjects.POST("", a.CustomerProjectsHandler.Create())
+		customerProjects.POST("/:id/invoices", a.CustomerProjectInvoicesHandler.Create())
 		customerProjects.PUT("/:id", a.CustomerProjectsHandler.Update())
 		customerProjects.DELETE("/:id", a.CustomerProjectsHandler.Delete())
+	}
+
+	customerProjectInvoices := api.Group("/customer-project-invoices")
+	customerProjectInvoices.Use(middlewares.AuthRequired(a.AuthService), a.csrfMiddleware())
+	{
+		customerProjectInvoices.PUT("/:id", a.CustomerProjectInvoicesHandler.Update())
+		customerProjectInvoices.PUT("/:id/pay", a.CustomerProjectInvoicesHandler.Pay())
+		customerProjectInvoices.PUT("/:id/unpay", a.CustomerProjectInvoicesHandler.Unpay())
 	}
 
 	projectServices := api.Group("/project-services")
